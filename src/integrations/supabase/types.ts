@@ -206,6 +206,9 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          vapi_assistant_id: string | null
+          vapi_private_key: string | null
+          vapi_public_key: string | null
         }
         Insert: {
           country_id: string
@@ -213,6 +216,9 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          vapi_assistant_id?: string | null
+          vapi_private_key?: string | null
+          vapi_public_key?: string | null
         }
         Update: {
           country_id?: string
@@ -220,6 +226,9 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          vapi_assistant_id?: string | null
+          vapi_private_key?: string | null
+          vapi_public_key?: string | null
         }
         Relationships: [
           {

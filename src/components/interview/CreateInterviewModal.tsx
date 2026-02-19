@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Upload, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 interface Props {
@@ -22,7 +22,6 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
   const [visaTypes, setVisaTypes] = useState<Tables<"visa_types">[]>([]);
   const [countryId, setCountryId] = useState("");
   const [visaTypeId, setVisaTypeId] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,7 +46,6 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
     }
     setLoading(true);
 
-    // Create interview record
     const { data: interview, error } = await supabase
       .from("interviews")
       .insert({ user_id: user.id, country_id: countryId, visa_type_id: visaTypeId, status: "pending" })
@@ -58,11 +56,6 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
       toast.error("Failed to create interview");
       setLoading(false);
       return;
-    }
-
-    // Upload files
-    for (const file of files) {
-      await supabase.storage.from("interview-documents").upload(`${user.id}/${interview.id}/${file.name}`, file);
     }
 
     onOpenChange(false);
@@ -101,22 +94,6 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Supporting Documents (optional)</Label>
-            <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground mb-2">Drop files or click to upload</p>
-              <input
-                type="file"
-                multiple
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-              />
-              {files.length > 0 && (
-                <p className="text-sm font-medium">{files.length} file(s) selected</p>
-              )}
-            </div>
           </div>
           <Button onClick={handleSubmit} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold" disabled={loading}>
             {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Start Interview"}

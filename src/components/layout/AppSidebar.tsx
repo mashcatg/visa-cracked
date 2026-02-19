@@ -1,8 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Settings, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo-alt.png";
+import sidebarLogo from "@/assets/sidebar-logo.png";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSideb
   const { pathname } = useLocation();
   const { user, isAdmin, signOut } = useAuth();
   const [recentInterviews, setRecentInterviews] = useState<Tables<"interviews">[]>([]);
+  const [profileName, setProfileName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -29,7 +30,21 @@ export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSideb
       .then(({ data }) => {
         if (data) setRecentInterviews(data);
       });
+
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.full_name) setProfileName(data.full_name);
+      });
   }, [user]);
+
+  const displayName = profileName || user?.email || "User";
+  const initials = profileName
+    ? profileName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+    : user?.email?.[0]?.toUpperCase() ?? "U";
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -39,7 +54,7 @@ export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSideb
     <aside className="flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Logo */}
       <div className="flex items-center gap-2 px-6 py-5 border-b border-sidebar-border">
-        <img src={logo} alt="VisaCracker" className="h-8" />
+        <img src={sidebarLogo} alt="VisaCracker" className="h-8" />
       </div>
 
       {/* Nav */}
@@ -116,11 +131,11 @@ export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSideb
       {/* User & Logout */}
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="h-8 w-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-sm font-bold">
-            {user?.email?.[0]?.toUpperCase() ?? "U"}
+          <div className="h-8 w-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-xs font-bold">
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.email}</p>
+            <p className="text-sm font-medium truncate">{displayName}</p>
           </div>
           <button onClick={signOut} className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
             <LogOut className="h-4 w-4" />

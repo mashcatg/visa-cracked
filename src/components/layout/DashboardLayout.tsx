@@ -7,14 +7,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { FileText } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
   const [interviews, setInterviews] = useState<any[]>([]);
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
 
   // Ctrl+K shortcut
   useEffect(() => {
@@ -42,13 +45,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [user, searchOpen]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden w-full">
       <AppSidebar
         onSearchOpen={() => setSearchOpen(true)}
         onCreateInterview={() => setCreateOpen(true)}
         onPricingOpen={() => setPricingOpen(true)}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(!collapsed)}
       />
-      <main className="flex-1 overflow-y-auto bg-background">
+      <main className={`flex-1 overflow-y-auto bg-background ${isMobile ? 'pt-16' : ''}`}>
         {children}
       </main>
 

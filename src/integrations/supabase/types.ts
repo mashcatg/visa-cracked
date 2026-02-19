@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_grants: {
+        Row: {
+          created_at: string
+          credits: number
+          expires_at: string | null
+          granted_by: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          expires_at?: string | null
+          granted_by: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          expires_at?: string | null
+          granted_by?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       interview_reports: {
         Row: {
           confidence_score: number | null
@@ -100,6 +130,7 @@ export type Database = {
           ended_at: string | null
           id: string
           messages: Json | null
+          name: string | null
           recording_url: string | null
           status: string
           transcript: string | null
@@ -115,6 +146,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           messages?: Json | null
+          name?: string | null
           recording_url?: string | null
           status?: string
           transcript?: string | null
@@ -130,6 +162,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           messages?: Json | null
+          name?: string | null
           recording_url?: string | null
           status?: string
           transcript?: string | null

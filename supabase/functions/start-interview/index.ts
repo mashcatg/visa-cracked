@@ -27,10 +27,8 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(
-      authHeader.replace("Bearer ", "")
-    );
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -45,12 +43,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    const vapiPrivateKey = Deno.env.get("VAPI_PRIVATE_KEY");
-    const vapiPublicKey = Deno.env.get("VAPI_PUBLIC_KEY");
-    const assistantId = Deno.env.get("VAPI_ASSISTANT_ID");
+    // Use service role to read interview + visa type Vapi config
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    if (!vapiPrivateKey || !vapiPublicKey) {
-      return new Response(JSON.stringify({ error: "Vapi keys not configured" }), {
+    const { data: interview, error: intError } = await serviceClient
+      .from("interviews")
+      .select("*, visa_types(vapi_assistant_id, vapi_public_key, vapi_private_key)")
+      .eq("id", interviewId)
+      .single();
+
+    if (intError || !interview) {
+      return new Response(JSON.stringify({ error: "Interview not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const visaType = interview.visa_types as any;
+    const vapiPrivateKey = visaType?.vapi_private_key || Deno.env.get("VAPI_PRIVATE_KEY");
+    const vapiPublicKey = visaType?.vapi_public_key || Deno.env.get("VAPI_PUBLIC_KEY");
+    const assistantId = visaType?.vapi_assistant_id || Deno.env.get("VAPI_ASSISTANT_ID");
+
+    if (!vapiPrivateKey || !vapiPublicKey || !assistantId) {
+      return new Response(JSON.stringify({ error: "Vapi not configured for this visa type" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -79,10 +97,6 @@ Deno.serve(async (req) => {
     }
 
     // Update interview with Vapi call ID
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
     await serviceClient
       .from("interviews")
       .update({ vapi_call_id: callData.id, status: "in_progress" })

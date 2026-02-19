@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Target, TrendingUp, FileText } from "lucide-react";
+import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -15,10 +15,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    // Fetch interviews with reports
     supabase
       .from("interviews")
-      .select("*, interview_reports(*), countries(name), visa_types(name)")
+      .select("*, interview_reports(*), countries(name, flag_emoji), visa_types(name)")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
@@ -37,7 +36,6 @@ export default function Dashboard() {
 
         setStats({ total, avgScore, passRate });
 
-        // Chart data — group by date
         const byDate: Record<string, number[]> = {};
         scored.forEach((i) => {
           const date = new Date(i.created_at).toLocaleDateString();
@@ -54,13 +52,26 @@ export default function Dashboard() {
   }, [user]);
 
   const statCards = [
-    { title: "Total Interviews", value: stats.total, icon: FileText, color: "text-primary" },
-    { title: "Average Score", value: stats.avgScore, icon: Target, color: "text-accent-foreground" },
-    { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, color: "text-accent-foreground" },
+    { title: "Total Interviews", value: stats.total, icon: FileText, description: "All time" },
+    { title: "Average Score", value: stats.avgScore, icon: Target, description: "Out of 100" },
+    { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, description: "Score ≥ 60" },
   ];
 
+  function scoreColor(score: number) {
+    if (score >= 80) return "text-emerald-500";
+    if (score >= 60) return "text-amber-500";
+    return "text-red-500";
+  }
+
+  function scoreBg(score: number) {
+    if (score >= 80) return "bg-emerald-500/10";
+    if (score >= 60) return "bg-amber-500/10";
+    return "bg-red-500/10";
+  }
+
   return (
-    <div className="p-6 lg:p-8 space-y-8">
+    <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Your interview preparation overview</p>
@@ -69,13 +80,16 @@ export default function Dashboard() {
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {statCards.map((card) => (
-          <Card key={card.title} className="border-border/50">
+          <Card key={card.title} className="relative overflow-hidden border-border/50 hover:border-accent/30 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
-              <card.icon className={`h-5 w-5 ${card.color}`} />
+              <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center">
+                <card.icon className="h-4.5 w-4.5 text-accent" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{card.value}</div>
+              <div className="text-3xl font-bold tracking-tight">{card.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
             </CardContent>
           </Card>
         ))}
@@ -83,22 +97,35 @@ export default function Dashboard() {
 
       {/* Score Trend Chart */}
       {chartData.length > 1 && (
-        <Card>
+        <Card className="border-border/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BarChart3 className="h-5 w-5 text-accent" />
               Score Trend
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="date" className="text-xs" />
-                <YAxis domain={[0, 100]} className="text-xs" />
-                <Tooltip />
-                <Line type="monotone" dataKey="score" stroke="hsl(145 78% 52%)" strokeWidth={2} dot={{ fill: "hsl(145 78% 52%)" }} />
-              </LineChart>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(145 78% 52%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(145 78% 52%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" vertical={false} />
+                <XAxis dataKey="date" className="text-xs" tick={{ fill: "hsl(168 15% 40%)", fontSize: 12 }} />
+                <YAxis domain={[0, 100]} className="text-xs" tick={{ fill: "hsl(168 15% 40%)", fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(0 0% 100%)",
+                    border: "1px solid hsl(150 15% 90%)",
+                    borderRadius: "8px",
+                    fontSize: 13,
+                  }}
+                />
+                <Area type="monotone" dataKey="score" stroke="hsl(145 78% 52%)" strokeWidth={2.5} fill="url(#scoreGradient)" dot={{ fill: "hsl(145 78% 52%)", strokeWidth: 2, r: 4 }} />
+              </AreaChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -108,38 +135,48 @@ export default function Dashboard() {
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Interviews</h2>
         {recentInterviews.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No interviews yet</p>
-            <p className="text-sm mt-1">Create your first mock interview to get started</p>
+          <Card className="p-12 text-center border-dashed border-2 border-border/50">
+            <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+            <p className="font-semibold text-lg">No interviews yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Create your first mock interview to get started</p>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recentInterviews.map((interview) => (
               <Link key={interview.id} to={`/interview/${interview.id}/report`}>
-                <Card className="hover:border-ring/50 transition-colors cursor-pointer h-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">
-                      {(interview.countries as any)?.name} — {(interview.visa_types as any)?.name}
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(interview.created_at).toLocaleDateString()}
-                    </p>
+                <Card className="hover:border-accent/40 hover:shadow-md transition-all cursor-pointer h-full group">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <span className="text-lg">{(interview.countries as any)?.flag_emoji}</span>
+                          {(interview.countries as any)?.name}
+                        </CardTitle>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {(interview.visa_types as any)?.name}
+                        </p>
+                      </div>
+                      <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-accent transition-colors" />
+                    </div>
                   </CardHeader>
                   <CardContent>
-                    {interview.interview_reports?.overall_score != null ? (
-                      <div className="flex items-center gap-2">
-                        <div className={`text-2xl font-bold ${
-                          interview.interview_reports.overall_score >= 80 ? "text-green-600" :
-                          interview.interview_reports.overall_score >= 60 ? "text-yellow-600" : "text-red-600"
-                        }`}>
-                          {interview.interview_reports.overall_score}/100
+                    <div className="flex items-center justify-between">
+                      {interview.interview_reports?.overall_score != null ? (
+                        <div className="flex items-center gap-2">
+                          <div className={`text-2xl font-bold ${scoreColor(interview.interview_reports.overall_score)}`}>
+                            {interview.interview_reports.overall_score}
+                          </div>
+                          <div className={`text-xs px-2 py-0.5 rounded-full font-medium ${scoreBg(interview.interview_reports.overall_score)} ${scoreColor(interview.interview_reports.overall_score)}`}>
+                            /100
+                          </div>
                         </div>
-                        <span className="text-sm text-muted-foreground">score</span>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground capitalize">{interview.status}</span>
-                    )}
+                      ) : (
+                        <span className="text-sm text-muted-foreground capitalize px-2 py-0.5 rounded-full bg-muted">{interview.status}</span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(interview.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>

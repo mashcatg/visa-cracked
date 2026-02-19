@@ -91,7 +91,7 @@ export default function InterviewReport() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Interview Report</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Mock Test Report</h1>
           <p className="text-muted-foreground mt-1">
             {(interview.countries as any)?.name} — {(interview.visa_types as any)?.name} •{" "}
             {new Date(interview.created_at).toLocaleDateString()}

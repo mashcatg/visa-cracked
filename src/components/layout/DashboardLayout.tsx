@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import AppSidebar from "./AppSidebar";
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import CreateInterviewModal from "@/components/interview/CreateInterviewModal";
+import PricingModal from "@/components/pricing/PricingModal";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { FileText } from "lucide-react";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
   const [interviews, setInterviews] = useState<any[]>([]);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -41,17 +43,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <AppSidebar onSearchOpen={() => setSearchOpen(true)} onCreateInterview={() => setCreateOpen(true)} />
+      <AppSidebar
+        onSearchOpen={() => setSearchOpen(true)}
+        onCreateInterview={() => setCreateOpen(true)}
+        onPricingOpen={() => setPricingOpen(true)}
+      />
       <main className="flex-1 overflow-y-auto bg-background">
         {children}
       </main>
 
       {/* Search Command Palette */}
       <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <CommandInput placeholder="Search interviews..." />
+        <CommandInput placeholder="Search mock tests..." />
         <CommandList>
-          <CommandEmpty>No interviews found.</CommandEmpty>
-          <CommandGroup heading="Interviews">
+          <CommandEmpty>No mock tests found.</CommandEmpty>
+          <CommandGroup heading="Mock Tests">
             {interviews.map((i) => (
               <CommandItem
                 key={i.id}
@@ -71,8 +77,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </CommandList>
       </CommandDialog>
 
-      {/* Create Interview Modal */}
+      {/* Create Mock Test Modal */}
       <CreateInterviewModal open={createOpen} onOpenChange={setCreateOpen} />
+
+      {/* Pricing Modal */}
+      <PricingModal open={pricingOpen} onOpenChange={setPricingOpen} />
     </div>
   );
 }

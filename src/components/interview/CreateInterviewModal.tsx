@@ -53,7 +53,7 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
       .single();
 
     if (error || !interview) {
-      toast.error("Failed to create interview");
+      toast.error("Failed to create mock test");
       setLoading(false);
       return;
     }
@@ -67,8 +67,8 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Interview</DialogTitle>
-          <DialogDescription>Select country and visa type to start a mock interview</DialogDescription>
+          <DialogTitle>Create Mock Test</DialogTitle>
+          <DialogDescription>Select country and visa type to start a mock test</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -96,7 +96,7 @@ export default function CreateInterviewModal({ open, onOpenChange }: Props) {
             </Select>
           </div>
           <Button onClick={handleSubmit} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold" disabled={loading}>
-            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Start Interview"}
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Start Mock Test"}
           </Button>
         </div>
       </DialogContent>

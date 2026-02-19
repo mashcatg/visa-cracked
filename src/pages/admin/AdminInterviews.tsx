@@ -59,7 +59,7 @@ export default function AdminInterviews() {
             </TableRow>
           ))}
           {interviews.length === 0 && (
-            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No interviews</TableCell></TableRow>
+            <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No mock tests</TableCell></TableRow>
           )}
         </TableBody>
       </Table>

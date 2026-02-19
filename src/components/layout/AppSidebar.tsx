@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/sidebar-logo.png";
@@ -11,13 +11,15 @@ import type { Tables } from "@/integrations/supabase/types";
 interface AppSidebarProps {
   onSearchOpen: () => void;
   onCreateInterview: () => void;
+  onPricingOpen: () => void;
 }
 
-export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSidebarProps) {
+export default function AppSidebar({ onSearchOpen, onCreateInterview, onPricingOpen }: AppSidebarProps) {
   const { pathname } = useLocation();
   const { user, isAdmin, signOut } = useAuth();
   const [recentInterviews, setRecentInterviews] = useState<Tables<"interviews">[]>([]);
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [credits, setCredits] = useState<number>(0);
 
   useEffect(() => {
     if (!user) return;
@@ -33,11 +35,14 @@ export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSideb
 
     supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, credits")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
-        if (data?.full_name) setProfileName(data.full_name);
+        if (data) {
+          if (data.full_name) setProfileName(data.full_name);
+          setCredits((data as any).credits ?? 0);
+        }
       });
   }, [user]);
 
@@ -85,19 +90,29 @@ export default function AppSidebar({ onSearchOpen, onCreateInterview }: AppSideb
           <kbd className="ml-auto text-[10px] bg-sidebar-accent/50 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
         </button>
 
-        {/* Create Interview */}
+        {/* Create Mock Test */}
         <Button
           onClick={onCreateInterview}
           className="w-full mt-3 bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 font-semibold"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Create Interview
+          Create Mock Test
         </Button>
 
-        {/* Recent Interviews */}
+        {/* Credits */}
+        <button
+          onClick={onPricingOpen}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 mt-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
+        >
+          <Coins className="h-4 w-4 text-sidebar-primary" />
+          <span>{credits} Credits</span>
+          <span className="ml-auto text-[10px] bg-sidebar-primary/20 text-sidebar-primary px-2 py-0.5 rounded-full font-semibold">Buy</span>
+        </button>
+
+        {/* Recent Mock Tests */}
         {recentInterviews.length > 0 && (
           <div className="mt-6">
-            <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Recent Interviews</p>
+            <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Recent Mocks</p>
             {recentInterviews.map((interview) => (
               <Link
                 key={interview.id}

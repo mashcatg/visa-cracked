@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
+import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -52,7 +52,7 @@ export default function Dashboard() {
   }, [user]);
 
   const statCards = [
-    { title: "Total Interviews", value: stats.total, icon: FileText, description: "All time" },
+    { title: "Total Mock Tests", value: stats.total, icon: FileText, description: "All time" },
     { title: "Average Score", value: stats.avgScore, icon: Target, description: "Out of 100" },
     { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, description: "Score ≥ 60" },
   ];
@@ -71,10 +71,9 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Your interview preparation overview</p>
+        <p className="text-muted-foreground mt-1">Your mock test preparation overview</p>
       </div>
 
       {/* Stats */}
@@ -131,14 +130,14 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Recent Interviews */}
+      {/* Recent Mock Tests */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Recent Interviews</h2>
+        <h2 className="text-xl font-semibold mb-4">Recent Mock Tests</h2>
         {recentInterviews.length === 0 ? (
           <Card className="p-12 text-center border-dashed border-2 border-border/50">
             <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-            <p className="font-semibold text-lg">No interviews yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Create your first mock interview to get started</p>
+            <p className="font-semibold text-lg">No mock tests yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Create your first mock test to get started</p>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

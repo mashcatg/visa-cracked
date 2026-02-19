@@ -7,7 +7,7 @@ const adminNav = [
   { label: "Admins", href: "/admin/admins", icon: Shield },
   { label: "Countries", href: "/admin/countries", icon: Globe },
   { label: "Visa Types", href: "/admin/visa-types", icon: Stamp },
-  { label: "All Interviews", href: "/admin/interviews", icon: FileText },
+  { label: "All Mock Tests", href: "/admin/interviews", icon: FileText },
 ];
 
 export default function AdminLayout() {
@@ -17,7 +17,7 @@ export default function AdminLayout() {
     <div className="p-6 lg:p-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
-        <p className="text-muted-foreground mt-1">Manage users, content, and interviews</p>
+        <p className="text-muted-foreground mt-1">Manage users, content, and mock tests</p>
       </div>
 
       {/* Tabs */}

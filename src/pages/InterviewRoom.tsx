@@ -38,13 +38,11 @@ export default function InterviewRoom() {
 
     async function startCall() {
       try {
-        // Call backend to create web call
         const { data, error } = await supabase.functions.invoke("start-interview", {
           body: { interviewId: id },
         });
         if (error) throw error;
 
-        // Dynamically import Vapi SDK
         const Vapi = (await import("@vapi-ai/web")).default;
         const vapi = new Vapi(data.publicKey);
         vapiRef.current = vapi;
@@ -78,11 +76,10 @@ export default function InterviewRoom() {
           toast.error("Voice connection error");
         });
 
-        // Start the call with the web call data
         vapi.start(data.callConfig);
       } catch (err: any) {
-        console.error("Failed to start interview:", err);
-        toast.error("Failed to start interview");
+        console.error("Failed to start mock test:", err);
+        toast.error("Failed to start mock test");
         setIsLoading(false);
       }
     }
@@ -98,15 +95,13 @@ export default function InterviewRoom() {
     setIsConnected(false);
     stream?.getTracks().forEach((t) => t.stop());
 
-    toast.info("Interview ended. Analyzing results...");
+    toast.info("Mock test ended. Analyzing results...");
 
     try {
-      // Fetch results from Vapi
       await supabase.functions.invoke("get-interview-results", {
         body: { interviewId: id },
       });
 
-      // Trigger Gemini analysis
       await supabase.functions.invoke("analyze-interview", {
         body: { interviewId: id },
       });
@@ -140,7 +135,7 @@ export default function InterviewRoom() {
     <div className="fixed inset-0 bg-primary flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-sidebar-border">
-        <h1 className="text-lg font-semibold text-primary-foreground">Interview Room</h1>
+        <h1 className="text-lg font-semibold text-primary-foreground">Mock Test Room</h1>
         {isConnected && (
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -167,7 +162,6 @@ export default function InterviewRoom() {
                   <VideoOff className="h-16 w-16 text-primary-foreground/30" />
                 </div>
               )}
-              {/* Speaking indicator */}
               {isSpeaking && (
                 <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -206,7 +200,7 @@ export default function InterviewRoom() {
           {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5 text-red-400" />}
         </Button>
         <Button className="rounded-full h-12 px-8 bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={endInterview} disabled={!isConnected}>
-          <PhoneOff className="h-5 w-5 mr-2" /> End Interview
+          <PhoneOff className="h-5 w-5 mr-2" /> End Mock Test
         </Button>
       </div>
     </div>

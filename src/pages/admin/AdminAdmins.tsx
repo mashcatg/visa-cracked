@@ -52,7 +52,38 @@ export default function AdminAdmins() {
   async function addAdmin() {
     if (!email) return;
     setLoading(true);
-    toast.info("To add admins, the user must first sign up. Then you can assign them the admin role.");
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("email", email.trim().toLowerCase())
+      .single();
+    if (!profile) {
+      toast.error("User not found. They must sign up first.");
+      setLoading(false);
+      return;
+    }
+    const { data: existing } = await supabase
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", profile.user_id)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (existing) {
+      toast.info("User is already an admin.");
+      setLoading(false);
+      setDialogOpen(false);
+      return;
+    }
+    const { error } = await supabase
+      .from("user_roles")
+      .insert({ user_id: profile.user_id, role: "admin" });
+    if (error) {
+      toast.error("Failed to add admin");
+    } else {
+      toast.success("Admin added!");
+      setEmail("");
+      fetchAdmins();
+    }
     setLoading(false);
     setDialogOpen(false);
   }

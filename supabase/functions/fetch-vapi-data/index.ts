@@ -116,7 +116,6 @@ Deno.serve(async (req) => {
         transcript: callData?.artifact?.transcript ?? null,
         messages: callData?.artifact?.messages ?? [],
         duration: callData?.duration ?? null,
-        cost: callData?.cost ?? null,
         endedReason: callData?.endedReason ?? null,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Users, Shield, Globe, FileText, Stamp } from "lucide-react";
+import { Users, Shield, Globe, FileText, Stamp, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminNav = [
@@ -8,6 +8,7 @@ const adminNav = [
   { label: "Countries", href: "/admin/countries", icon: Globe },
   { label: "Visa Types", href: "/admin/visa-types", icon: Stamp },
   { label: "All Mock Tests", href: "/admin/interviews", icon: FileText },
+  { label: "Export Center", href: "/admin/export-center", icon: Download },
 ];
 
 export default function AdminLayout() {

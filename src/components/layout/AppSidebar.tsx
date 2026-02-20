@@ -136,9 +136,11 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
     )}>
       <div className="flex items-center gap-2 px-3 py-5 border-b border-sidebar-border">
         {!collapsed && <img src={sidebarLogo} alt="Visa Cracked" className="h-8 ml-3" />}
-        <button onClick={onToggleCollapse} className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50">
-          {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </button>
+        {!onClose && (
+          <button onClick={onToggleCollapse} className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50">
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-1">

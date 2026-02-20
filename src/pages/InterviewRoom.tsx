@@ -285,12 +285,12 @@ export default function InterviewRoom() {
 
         {/* Single-line transcript bar */}
         {subtitlesOn && isConnected && lastTranscript && (
-          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[88%]" : "max-w-xl w-full"} z-10`}>
+          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[88%]" : "max-w-sm w-full"} z-10`}>
             <div className="bg-black/50 backdrop-blur-lg rounded-full px-4 py-1.5 flex items-center gap-1.5 overflow-hidden">
               <span className={`text-[10px] font-bold uppercase shrink-0 ${lastTranscript.role === "You" ? "text-accent" : "text-white/40"}`}>
                 {lastTranscript.role}
               </span>
-              <span className="text-white/90 text-xs truncate">{lastTranscript.text}</span>
+              <span className="text-white/90 text-xs truncate shimmer-text-light">{lastTranscript.text}</span>
             </div>
           </div>
         )}

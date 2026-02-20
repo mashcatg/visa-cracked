@@ -13,14 +13,11 @@ function formatTime(seconds: number) {
   return `${m}:${s}`;
 }
 
-const PROCESSING_MESSAGES = [
-  "Fetching your interview transcript...",
-  "Analyzing your responses with AI...",
-  "Evaluating grammar and pronunciation...",
-  "Checking for red flags...",
-  "Generating detailed feedback...",
-  "Scoring your confidence level...",
-  "Almost there, preparing your report...",
+const CONNECTING_MESSAGES = [
+  "Preparing your interview environment...",
+  "Setting up secure connection...",
+  "Loading interview questions...",
+  "Almost ready...",
 ];
 
 const FAREWELL_PHRASES = [
@@ -47,17 +44,16 @@ export default function InterviewRoom() {
   const [camOn, setCamOn] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [connectionQuality, setConnectionQuality] = useState<"good" | "fair" | "poor">("good");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingMsgIdx, setProcessingMsgIdx] = useState(0);
+  const [connectingMsgIdx, setConnectingMsgIdx] = useState(0);
 
-  // Rotating processing messages
+  // Rotating connecting messages
   useEffect(() => {
-    if (!isProcessing) return;
+    if (!isLoading) return;
     const interval = setInterval(() => {
-      setProcessingMsgIdx((i) => (i + 1) % PROCESSING_MESSAGES.length);
-    }, 4000);
+      setConnectingMsgIdx((i) => (i + 1) % CONNECTING_MESSAGES.length);
+    }, 3000);
     return () => clearInterval(interval);
-  }, [isProcessing]);
+  }, [isLoading]);
 
   // Elapsed timer
   useEffect(() => {
@@ -125,13 +121,9 @@ export default function InterviewRoom() {
             if (message.role === "assistant") {
               setAssistantSubtitle(message.transcript);
               setIsSpeaking("assistant");
-
-              // Auto-stop if bot says farewell
               const text = (message.transcript || "").toLowerCase();
               if (FAREWELL_PHRASES.some((phrase) => text.includes(phrase))) {
-                setTimeout(() => {
-                  vapiRef.current?.stop();
-                }, 2000);
+                setTimeout(() => { vapiRef.current?.stop(); }, 2000);
               }
             } else {
               setUserSubtitle(message.transcript);
@@ -164,9 +156,8 @@ export default function InterviewRoom() {
 
   const handleCallEnd = useCallback(async () => {
     setIsConnected(false);
-    setIsProcessing(true);
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    toast.info("Mock test ended. Fetching results...");
+    toast.info("Mock test ended. Preparing your report...");
 
     try {
       const { data: resultData } = await supabase.functions.invoke("get-interview-results", { body: { interviewId: id } });
@@ -177,9 +168,9 @@ export default function InterviewRoom() {
         return;
       }
 
-      // Navigate to report immediately — Vapi data (audio, transcript, messages) is already saved
-      // Fire AI analysis in background; the report page will poll for it
+      // Navigate to report immediately
       navigate(`/interview/${id}/report`);
+      // Fire AI analysis in background
       supabase.functions.invoke("analyze-interview", { body: { interviewId: id } }).catch(console.error);
     } catch {
       toast.error("Error processing results");
@@ -210,29 +201,6 @@ export default function InterviewRoom() {
 
   const qualityColor = connectionQuality === "good" ? "bg-green-500" : connectionQuality === "fair" ? "bg-amber-500" : "bg-red-500";
 
-  // Processing screen with rotating messages
-  if (isProcessing) {
-    return (
-      <div className="fixed inset-0 bg-[#003B36] flex flex-col items-center justify-center gap-6">
-        <div className="relative">
-          <div className="absolute inset-0 -m-6 rounded-full bg-accent/10 blur-3xl animate-pulse" />
-          <Loader2 className="h-14 w-14 animate-spin text-accent relative z-10" />
-        </div>
-        <div className="text-center space-y-2">
-          <p className="text-white text-lg font-semibold transition-all duration-500 min-h-[28px]">
-            {PROCESSING_MESSAGES[processingMsgIdx]}
-          </p>
-          <p className="text-white/40 text-sm">This usually takes 1–2 minutes</p>
-        </div>
-        <div className="flex items-center gap-1.5 mt-4">
-          {PROCESSING_MESSAGES.map((_, i) => (
-            <div key={i} className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${i === processingMsgIdx ? "bg-accent w-4" : "bg-white/20"}`} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="fixed inset-0 bg-[#003B36] flex flex-col">
       {/* Header */}
@@ -254,67 +222,87 @@ export default function InterviewRoom() {
         </div>
       </div>
 
-      {/* Main area - Interviewer + PIP */}
+      {/* Main area - User camera is the main view (Google Meet style) */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {/* Interviewer area - full bleed */}
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#002A26] via-[#003B36] to-[#002A26]">
-          {/* Animated orb behind avatar */}
-          <div className="relative flex flex-col items-center gap-4">
-            <div className={`absolute inset-0 -m-8 rounded-full bg-accent/5 blur-3xl transition-all duration-1000 ${isSpeaking === "assistant" ? "scale-150 opacity-60" : "scale-100 opacity-20"}`} />
-            <div className={`relative h-24 w-24 md:h-32 md:w-32 rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center transition-all duration-300 ${isSpeaking === "assistant" ? "ring-4 ring-accent/40 scale-105" : ""}`}>
-              <User className="h-12 w-12 md:h-16 md:w-16 text-accent/80" />
-            </div>
-            <div className="text-center z-10">
-              <p className="text-white font-semibold text-lg">Visa Officer</p>
-              <p className="text-white/40 text-xs mt-0.5">
-                {isLoading ? "Connecting..." : isSpeaking === "assistant" ? "Speaking..." : "Listening"}
-              </p>
-            </div>
-          </div>
-
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#002A26]/90 backdrop-blur-md z-20">
-              <div className="text-center">
-                <Loader2 className="h-10 w-10 animate-spin mx-auto mb-3 text-accent" />
-                <p className="text-white font-medium">Connecting to interviewer...</p>
-                <p className="text-xs text-white/40 mt-1">Please allow camera & microphone</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Self-view PIP - top right corner */}
-        <div className={`absolute ${isMobile ? "top-3 right-3 w-32 h-44" : "top-4 right-4 w-56 h-40"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors z-10 bg-[#003B36]`}>
-          <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+        {/* User video - MAIN VIEW */}
+        <div className="w-full h-full relative">
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          />
           {!camOn && (
-            <div className="absolute inset-0 bg-[#003B36] flex items-center justify-center">
-              <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
-                <span className="text-sm font-bold text-accent">{initials}</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#002A26] via-[#003B36] to-[#002A26] flex items-center justify-center">
+              <div className="h-24 w-24 md:h-32 md:w-32 rounded-full bg-accent/20 flex items-center justify-center">
+                <span className="text-3xl md:text-4xl font-bold text-accent">{initials}</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Unified subtitles overlay - bottom of main area */}
-        <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${isMobile ? "w-[90%]" : "max-w-2xl w-full"} z-10`}>
-          <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-3 space-y-1.5">
-            {assistantSubtitle && (
-              <p className="text-white text-sm leading-relaxed shimmer-text-light">
-                <span className="text-white/50 text-xs font-medium mr-1.5">Officer:</span>
-                {assistantSubtitle}
-              </p>
-            )}
-            {userSubtitle && (
-              <p className="text-white/80 text-sm leading-relaxed">
-                <span className="text-accent/70 text-xs font-medium mr-1.5">You:</span>
-                {userSubtitle}
-              </p>
-            )}
-            {!assistantSubtitle && !userSubtitle && isConnected && (
-              <p className="text-white/30 text-xs text-center shimmer-text-light">Listening...</p>
-            )}
+        {/* Officer avatar - floating card top-left */}
+        <div className={`absolute ${isMobile ? "top-3 left-3" : "top-4 left-4"} z-10`}>
+          <div className={`${isMobile ? "w-20 h-20" : "w-28 h-28"} rounded-2xl bg-[#002A26]/90 backdrop-blur-md border ${isSpeaking === "assistant" ? "border-accent/60 shadow-lg shadow-accent/20" : "border-white/10"} flex flex-col items-center justify-center gap-1.5 transition-all duration-300`}>
+            <div className={`${isMobile ? "h-10 w-10" : "h-12 w-12"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center transition-all duration-300 ${isSpeaking === "assistant" ? "ring-2 ring-accent/40 scale-110" : ""}`}>
+              <User className={`${isMobile ? "h-5 w-5" : "h-6 w-6"} text-accent/80`} />
+            </div>
+            <span className="text-white/70 text-[10px] font-medium">
+              {isSpeaking === "assistant" ? "Speaking..." : "Officer"}
+            </span>
           </div>
         </div>
+
+        {/* Connecting overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#002A26]/90 backdrop-blur-md z-20">
+            <div className="text-center space-y-4">
+              <div className="relative">
+                <div className="absolute inset-0 -m-6 rounded-full bg-accent/10 blur-3xl animate-pulse" />
+                <Loader2 className="h-12 w-12 animate-spin mx-auto text-accent relative z-10" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-lg transition-all duration-500 min-h-[28px]">
+                  {CONNECTING_MESSAGES[connectingMsgIdx]}
+                </p>
+                <p className="text-xs text-white/40 mt-2">Please allow camera & microphone access</p>
+              </div>
+              <div className="flex items-center justify-center gap-1.5 mt-2">
+                {CONNECTING_MESSAGES.map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === connectingMsgIdx ? "bg-accent w-4" : "bg-white/20 w-1.5"}`} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Subtitles overlay - bottom center */}
+        {isConnected && (assistantSubtitle || userSubtitle) && (
+          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${isMobile ? "w-[90%]" : "max-w-2xl w-full"} z-10`}>
+            <div className="bg-black/70 backdrop-blur-md rounded-xl px-5 py-3.5 space-y-2">
+              {assistantSubtitle && (
+                <p className="text-white text-sm md:text-base leading-relaxed">
+                  <span className="text-white/50 text-xs font-semibold mr-2">Officer</span>
+                  {assistantSubtitle}
+                </p>
+              )}
+              {userSubtitle && (
+                <p className="text-white text-sm md:text-base leading-relaxed">
+                  <span className="text-accent text-xs font-semibold mr-2">You</span>
+                  {userSubtitle}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        {isConnected && !assistantSubtitle && !userSubtitle && (
+          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10`}>
+            <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2">
+              <p className="text-white/30 text-xs">Listening...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Controls bar */}

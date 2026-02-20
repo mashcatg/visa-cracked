@@ -72,6 +72,7 @@ export type Database = {
         Row: {
           confidence_score: number | null
           created_at: string
+          detailed_feedback: Json | null
           english_score: number | null
           financial_clarity_score: number | null
           grammar_mistakes: Json | null
@@ -80,12 +81,16 @@ export type Database = {
           improvement_plan: Json | null
           interview_id: string
           overall_score: number | null
+          pronunciation_score: number | null
           red_flags: Json | null
+          response_relevance_score: number | null
           summary: string | null
+          vocabulary_score: number | null
         }
         Insert: {
           confidence_score?: number | null
           created_at?: string
+          detailed_feedback?: Json | null
           english_score?: number | null
           financial_clarity_score?: number | null
           grammar_mistakes?: Json | null
@@ -94,12 +99,16 @@ export type Database = {
           improvement_plan?: Json | null
           interview_id: string
           overall_score?: number | null
+          pronunciation_score?: number | null
           red_flags?: Json | null
+          response_relevance_score?: number | null
           summary?: string | null
+          vocabulary_score?: number | null
         }
         Update: {
           confidence_score?: number | null
           created_at?: string
+          detailed_feedback?: Json | null
           english_score?: number | null
           financial_clarity_score?: number | null
           grammar_mistakes?: Json | null
@@ -108,8 +117,11 @@ export type Database = {
           improvement_plan?: Json | null
           interview_id?: string
           overall_score?: number | null
+          pronunciation_score?: number | null
           red_flags?: Json | null
+          response_relevance_score?: number | null
           summary?: string | null
+          vocabulary_score?: number | null
         }
         Relationships: [
           {
@@ -129,6 +141,7 @@ export type Database = {
           duration: number | null
           ended_at: string | null
           id: string
+          is_public: boolean
           messages: Json | null
           name: string | null
           recording_url: string | null
@@ -145,6 +158,7 @@ export type Database = {
           duration?: number | null
           ended_at?: string | null
           id?: string
+          is_public?: boolean
           messages?: Json | null
           name?: string | null
           recording_url?: string | null
@@ -161,6 +175,7 @@ export type Database = {
           duration?: number | null
           ended_at?: string | null
           id?: string
+          is_public?: boolean
           messages?: Json | null
           name?: string | null
           recording_url?: string | null

@@ -57,11 +57,11 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
     }
     setLoading(true);
 
-    // Generate a name
     const country = countries.find(c => c.id === countryId);
     const visa = visaTypes.find(v => v.id === visaTypeId);
     const mockName = `${country?.flag_emoji || ''} ${country?.name || ''} ${visa?.name || ''} Mock`;
 
+    // Create interview WITHOUT deducting credits - credits are deducted after successful call
     const { data: interview, error } = await supabase
       .from("interviews")
       .insert({ user_id: user.id, country_id: countryId, visa_type_id: visaTypeId, status: "pending", name: mockName })
@@ -73,12 +73,6 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
       setLoading(false);
       return;
     }
-
-    // Deduct 10 credits
-    await supabase
-      .from("profiles")
-      .update({ credits: credits - 10 })
-      .eq("user_id", user.id);
 
     onOpenChange(false);
     navigate(`/interview/${interview.id}/room`);

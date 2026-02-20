@@ -163,12 +163,12 @@ export default function PublicReportPage() {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 text-accent" /> Red Flags
+                      <AlertTriangle className="h-3.5 w-3.5 text-orange-500" /> Red Flags
                     </h3>
                     <div className="space-y-2">
                       {redFlags.map((f, i) => (
                         <p key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-accent mt-1 shrink-0">•</span>{f}
+                          <span className="text-orange-500 mt-1 shrink-0">•</span>{f}
                         </p>
                       ))}
                     </div>
@@ -181,7 +181,7 @@ export default function PublicReportPage() {
                 <Card>
                   <CardContent className="p-4">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <XCircle className="h-3.5 w-3.5 text-accent" /> Grammar ({grammarMistakes.length})
+                      <XCircle className="h-3.5 w-3.5 text-red-500" /> Grammar ({grammarMistakes.length})
                     </h3>
                     <div className="space-y-2.5">
                       {grammarMistakes.map((m: any, i: number) => (

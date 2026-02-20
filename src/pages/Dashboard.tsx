@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight } from "lucide-react";
+import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-export default function Dashboard() {
+export default function Dashboard({ onCreateInterview }: { onCreateInterview?: () => void }) {
   const { user } = useAuth();
   const [stats, setStats] = useState({ total: 0, avgScore: 0, passRate: 0 });
   const [chartData, setChartData] = useState<any[]>([]);
@@ -75,6 +76,24 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Your mock test preparation overview</p>
       </div>
+
+      {/* CTA */}
+      <Card className="relative overflow-hidden border-accent/30 bg-gradient-to-r from-accent/10 via-accent/5 to-transparent">
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
+              <Sparkles className="h-6 w-6 text-accent" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold">Ready to practice?</h2>
+              <p className="text-sm text-muted-foreground">Start a mock visa interview and get AI-powered feedback</p>
+            </div>
+          </div>
+          <Button size="lg" className="shrink-0" onClick={onCreateInterview}>
+            Start Mock Test
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">

@@ -4,7 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -43,7 +43,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service role to read interview + visa type Vapi config
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -63,50 +62,25 @@ Deno.serve(async (req) => {
     }
 
     const visaType = interview.visa_types as any;
-    const vapiPrivateKey = visaType?.vapi_private_key || Deno.env.get("VAPI_PRIVATE_KEY");
     const vapiPublicKey = visaType?.vapi_public_key || Deno.env.get("VAPI_PUBLIC_KEY");
     const assistantId = visaType?.vapi_assistant_id || Deno.env.get("VAPI_ASSISTANT_ID");
 
-    if (!vapiPrivateKey || !vapiPublicKey || !assistantId) {
+    if (!vapiPublicKey || !assistantId) {
       return new Response(JSON.stringify({ error: "Vapi not configured for this visa type" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Create a web call via Vapi API
-    const vapiResponse = await fetch("https://api.vapi.ai/call", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${vapiPrivateKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "webCall",
-        assistantId: assistantId,
-      }),
-    });
-
-    const callData = await vapiResponse.json();
-
-    if (!vapiResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: "Failed to create Vapi call", details: callData }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Update interview with Vapi call ID
+    // Update interview status
     await serviceClient
       .from("interviews")
-      .update({ vapi_call_id: callData.id, status: "in_progress" })
+      .update({ status: "in_progress" })
       .eq("id", interviewId);
 
+    // Return config for client-side Vapi SDK to initiate the call
     return new Response(
-      JSON.stringify({
-        publicKey: vapiPublicKey,
-        callConfig: callData,
-      }),
+      JSON.stringify({ publicKey: vapiPublicKey, assistantId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -1,94 +1,113 @@
 
 
-# Multi-Feature Admin & UI Enhancement Plan
+# Fix Multiple Issues: Admin Toast, Audio Skeleton, Cost Removal, and More
 
-## Issues and Solutions
+## Changes Summary
 
-### 1. Admin Mock Tests Tab is Blank
-**Root Cause**: The query uses `profiles!interviews_user_id_fkey` to join profiles, but the foreign key `interviews_user_id_fkey` points to `auth.users`, not `profiles`. PostgREST cannot resolve this join, causing the query to fail silently.
+### 1. Fix "Add Admin" - Actually Add Admin by Email
+**File**: `src/pages/admin/AdminAdmins.tsx`
 
-**Fix**: 
-- Add a database migration to create a foreign key from `interviews.user_id` to `profiles.user_id` so PostgREST can resolve the join.
-- Alternatively, since `profiles.user_id` references `auth.users.id`, we can use a view or RPC. The cleanest fix is adding a FK relationship.
-- Migration: `ALTER TABLE public.interviews ADD CONSTRAINT interviews_user_id_profiles_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;`
-- Then update the query hint to: `profiles!interviews_user_id_profiles_fkey(full_name, email)`
+The current `addAdmin` function just shows a toast and does nothing. Replace it with real logic:
+- Query `profiles` table by email to find the user
+- If found, insert a row into `user_roles` with role `admin`
+- If not found, show an error toast saying "User not found. They must sign up first."
+- Refresh the admin list after success
 
-### 2. Default Theme Should Be "system"
-**Fix**: Change `App.tsx` ThemeProvider from `defaultTheme="light" enableSystem={false}` to `defaultTheme="system" enableSystem={true}`.
+### 2. Replace "Loading recording..." with Skeleton + Shimmer
+**File**: `src/pages/InterviewReport.tsx`
 
-### 3. Add Edit Profile & Change Password to User Dropdown
-**Changes to `AppSidebar.tsx`**:
-- Add "Edit Profile" menu item that opens a dialog with name and avatar URL fields, saving to `profiles` table.
-- Add "Change Password" menu item that opens a dialog with new password field, calling `supabase.auth.updateUser({ password })`.
-- Both items placed between "Free Plan" badge and Dark Mode toggle in the dropdown.
+Replace lines 310-319 (the `vapiLoading` loading state) with a shimmer skeleton that matches the custom audio player shape -- a card with shimmer blocks for the controls area.
 
-### 4. Interview Room Transcript - Single Line with Blurred Container
-**Changes to `InterviewRoom.tsx`**:
-- The transcript bar already uses `truncate` for single-line, but the role label and text are on the same line via inline spans. This already works as single-line.
-- Make the container smaller/more compact with `text-xs` for the text, reduce padding.
-- Ensure text shrinks/truncates properly like the reference image (Nabulas app) -- compact transparent blurred pill.
-- Already has `bg-black/60 backdrop-blur-md rounded-full` which matches. Just need to ensure single line truncation works and make text slightly smaller.
+### 3. Remove All Cost/DollarSign References
+**Files**:
+- `src/pages/InterviewReport.tsx`: Remove `DollarSign` import, remove `cost` variable, remove the cost display block (lines 292-296), remove `cost` from `VapiData` interface
+- `supabase/functions/fetch-vapi-data/index.ts`: Remove `cost` from the returned data
+- `src/pages/PublicReportPage.tsx`: No cost references found -- no changes needed
 
-### 5. Report Page - Chat Bubble UI Enhancement
-The chat bubbles already exist (lines 364-386 of InterviewReport.tsx). The current implementation already has:
-- User messages right-aligned with `bg-accent/10`
-- Officer messages left-aligned with `bg-muted`
-This matches the request. No changes needed here unless the user sees something different. Will verify the styling is correct.
+### 4. Theme is Already Set to System Default
+`App.tsx` already has `defaultTheme="system" enableSystem={true}` -- no change needed.
 
-### 6. Report Page - Custom Audio Player
-**Changes to `InterviewReport.tsx`**:
-- Replace the native `<audio>` element with a custom audio player component.
-- Features: play/pause button, progress bar/seek, current time / total time display, volume control.
-- Styled with brand colors: accent green for progress, primary for controls.
-- Compact card design matching the existing card style.
+### 5. Transcript Bar and Chat Bubbles Already Implemented
+The interview room transcript bar and report chat bubbles are already implemented from the previous round -- no changes needed.
 
-### 7. Remove "Admin signup info" Toast/Banner
-The image shows a toast "To add admins, the user must first sign up..." -- this is likely in AdminAdmins.tsx. Need to check and either remove or suppress it for existing signed-up users.
+### 6. Custom Audio Player Already Implemented
+Already in place at `src/components/audio/CustomAudioPlayer.tsx` -- no changes needed.
 
 ---
 
 ## Technical Details
 
-### Database Migration
-```sql
--- Add FK from interviews to profiles for PostgREST join support
-ALTER TABLE public.interviews 
-ADD CONSTRAINT interviews_user_id_profiles_fkey 
-FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
+### Fix Add Admin Logic
+```typescript
+async function addAdmin() {
+  if (!email) return;
+  setLoading(true);
+  // Look up user by email in profiles
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("user_id")
+    .eq("email", email.trim().toLowerCase())
+    .single();
+  if (!profile) {
+    toast.error("User not found. They must sign up first.");
+    setLoading(false);
+    return;
+  }
+  // Check if already admin
+  const { data: existing } = await supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", profile.user_id)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (existing) {
+    toast.info("User is already an admin.");
+    setLoading(false);
+    setDialogOpen(false);
+    return;
+  }
+  // Insert admin role
+  const { error } = await supabase
+    .from("user_roles")
+    .insert({ user_id: profile.user_id, role: "admin" });
+  if (error) {
+    toast.error("Failed to add admin");
+  } else {
+    toast.success("Admin added!");
+    setEmail("");
+    fetchAdmins();
+  }
+  setLoading(false);
+  setDialogOpen(false);
+}
 ```
 
-### Files to Create/Modify
+### Audio Loading Skeleton
+Replace the Loader2 spinner with shimmer blocks matching the audio player layout:
+```tsx
+{vapiLoading && !recordingUrl && (
+  <Card>
+    <CardContent className="p-4">
+      <div className="flex items-center gap-3">
+        <div className="h-4 w-4 rounded shimmer-block" />
+        <div className="h-10 w-10 rounded-full shimmer-block shrink-0" />
+        <div className="h-4 w-4 rounded shimmer-block" />
+        <div className="h-3 w-10 rounded shimmer-block" />
+        <div className="h-2 flex-1 rounded shimmer-block" />
+        <div className="h-3 w-10 rounded shimmer-block" />
+        <div className="h-4 w-4 rounded shimmer-block" />
+        <div className="h-2 w-16 rounded shimmer-block" />
+      </div>
+    </CardContent>
+  </Card>
+)}
+```
 
-| File | Action | Description |
-|------|--------|-------------|
-| Migration SQL | Create | Add FK interviews -> profiles |
-| `src/App.tsx` | Edit | Change defaultTheme to "system", enableSystem to true |
-| `src/components/layout/AppSidebar.tsx` | Edit | Add Edit Profile dialog + Change Password dialog to user dropdown |
-| `src/pages/InterviewRoom.tsx` | Edit | Refine transcript bar for compact single-line display |
-| `src/pages/InterviewReport.tsx` | Edit | Replace native audio with custom branded audio player |
-| `src/pages/admin/AdminInterviews.tsx` | Edit | Fix profiles join hint to use new FK name |
+### Files to Modify
 
-### Custom Audio Player Design
-- Rounded card with brand colors
-- Play/Pause button (accent green circle)
-- Seekable progress bar (accent green fill on muted track)
-- Time display: `elapsed / total` in `text-muted-foreground`
-- Uses HTML5 Audio API via `useRef<HTMLAudioElement>`
-
-### Edit Profile Dialog
-- Dialog with two fields: Full Name (text input), Avatar URL (text input)
-- Pre-populated from current profile data
-- Saves via `supabase.from("profiles").update({ full_name, avatar_url }).eq("user_id", user.id)`
-
-### Change Password Dialog  
-- Dialog with: New Password, Confirm Password fields
-- Validates match, minimum 6 chars
-- Calls `supabase.auth.updateUser({ password: newPassword })`
-- Shows success toast on completion
-
-### Transcript Bar Refinement
-- Reduce to `text-xs` for text content
-- Ensure the container is compact: `px-4 py-2` instead of `px-5 py-2.5`
-- Keep `truncate` on the container for text overflow
-- Matches the Nabulas reference: small, centered, blurred pill with shrinking text
+| File | Change |
+|------|--------|
+| `src/pages/admin/AdminAdmins.tsx` | Fix addAdmin to actually look up user and assign role |
+| `src/pages/InterviewReport.tsx` | Replace audio loading with skeleton; remove cost/DollarSign |
+| `supabase/functions/fetch-vapi-data/index.ts` | Remove cost from returned data |
 

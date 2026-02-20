@@ -46,7 +46,7 @@ export default function Signup() {
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto">
-            <img src={logo} alt="VisaCracker" className="h-12 mx-auto" />
+            <img src={logo} alt="Visa Cracked" className="h-12 mx-auto" />
           </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>Start preparing for your visa mock test</CardDescription>

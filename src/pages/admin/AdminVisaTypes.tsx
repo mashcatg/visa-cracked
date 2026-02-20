@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import type { Tables } from "@/integrations/supabase/types";
+import DataTableControls from "@/components/admin/DataTableControls";
+
+const PAGE_SIZE = 10;
 
 export default function AdminVisaTypes() {
   const [visaTypes, setVisaTypes] = useState<any[]>([]);
@@ -23,6 +26,8 @@ export default function AdminVisaTypes() {
   const [vapiAssistantId, setVapiAssistantId] = useState("");
   const [vapiPublicKey, setVapiPublicKey] = useState("");
   const [vapiPrivateKey, setVapiPrivateKey] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   async function fetchData() {
     const [vt, c] = await Promise.all([
@@ -34,6 +39,21 @@ export default function AdminVisaTypes() {
   }
 
   useEffect(() => { fetchData(); }, []);
+
+  const filtered = useMemo(() => {
+    if (!search) return visaTypes;
+    const q = search.toLowerCase();
+    return visaTypes.filter(vt =>
+      vt.name.toLowerCase().includes(q) ||
+      ((vt.countries as any)?.name || "").toLowerCase().includes(q) ||
+      (vt.description || "").toLowerCase().includes(q)
+    );
+  }, [visaTypes, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search]);
 
   function openEdit(vt: any) {
     setEditing(vt);
@@ -89,14 +109,15 @@ export default function AdminVisaTypes() {
   }
 
   return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <Button onClick={openNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search visa types..." />
+        <Button onClick={openNew} className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
           <Plus className="h-4 w-4 mr-2" /> Add Visa Type
         </Button>
       </div>
 
-      <div className="rounded-lg border">
+      <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -108,7 +129,7 @@ export default function AdminVisaTypes() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visaTypes.map((vt) => (
+            {paginated.map((vt) => (
               <TableRow key={vt.id}>
                 <TableCell>{(vt.countries as any)?.flag_emoji} {(vt.countries as any)?.name}</TableCell>
                 <TableCell className="font-medium">{vt.name}</TableCell>
@@ -130,7 +151,7 @@ export default function AdminVisaTypes() {
                 </TableCell>
               </TableRow>
             ))}
-            {visaTypes.length === 0 && (
+            {paginated.length === 0 && (
               <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No visa types</TableCell></TableRow>
             )}
           </TableBody>

@@ -31,7 +31,7 @@ export default function ForgotPassword() {
     <div className="flex min-h-screen items-center justify-center bg-primary px-4">
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="text-center space-y-4">
-          <img src={logo} alt="VisaCracker" className="h-12 mx-auto" />
+          <img src={logo} alt="Visa Cracked" className="h-12 mx-auto" />
           <CardTitle className="text-2xl">Reset password</CardTitle>
           <CardDescription>Enter your email and we'll send a reset link</CardDescription>
         </CardHeader>

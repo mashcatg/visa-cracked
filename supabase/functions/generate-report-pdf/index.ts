@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     const improvementPlan = Array.isArray(report?.improvement_plan) ? report.improvement_plan : [];
 
     // Build PDF content as text
-    let content = `VISACRACKER INTERVIEW REPORT\n`;
+    let content = `VISA CRACKED - MOCK TEST REPORT\n`;
     content += `${"=".repeat(50)}\n\n`;
     content += `Country: ${countryName}\n`;
     content += `Visa Type: ${visaType}\n`;

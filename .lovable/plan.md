@@ -1,52 +1,49 @@
 
 
-# Admin Panel Enhancements
+# Multi-Feature Admin & UI Enhancement Plan
 
-## Overview
-Three main improvements to the admin panel:
-1. Show user emails in the Users table
-2. Fix "All Mock Tests" to show all users' data with report details
-3. Add CSV export button to every admin table
+## Issues and Solutions
 
----
+### 1. Admin Mock Tests Tab is Blank
+**Root Cause**: The query uses `profiles!interviews_user_id_fkey` to join profiles, but the foreign key `interviews_user_id_fkey` points to `auth.users`, not `profiles`. PostgREST cannot resolve this join, causing the query to fail silently.
 
-## 1. Add Email to Profiles Table
+**Fix**: 
+- Add a database migration to create a foreign key from `interviews.user_id` to `profiles.user_id` so PostgREST can resolve the join.
+- Alternatively, since `profiles.user_id` references `auth.users.id`, we can use a view or RPC. The cleanest fix is adding a FK relationship.
+- Migration: `ALTER TABLE public.interviews ADD CONSTRAINT interviews_user_id_profiles_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;`
+- Then update the query hint to: `profiles!interviews_user_id_profiles_fkey(full_name, email)`
 
-**Problem**: The `profiles` table has no `email` column. Emails live in `auth.users` which can't be queried from the client.
+### 2. Default Theme Should Be "system"
+**Fix**: Change `App.tsx` ThemeProvider from `defaultTheme="light" enableSystem={false}` to `defaultTheme="system" enableSystem={true}`.
 
-**Solution**:
-- Add an `email` text column to the `profiles` table via migration
-- Update the `handle_new_user()` trigger to store `NEW.email` into profiles
-- Backfill existing users' emails using a one-time migration:
-  ```sql
-  UPDATE public.profiles SET email = u.email
-  FROM auth.users u WHERE u.id = profiles.user_id;
-  ```
-- Update `AdminUsers.tsx` to display the email column
+### 3. Add Edit Profile & Change Password to User Dropdown
+**Changes to `AppSidebar.tsx`**:
+- Add "Edit Profile" menu item that opens a dialog with name and avatar URL fields, saving to `profiles` table.
+- Add "Change Password" menu item that opens a dialog with new password field, calling `supabase.auth.updateUser({ password })`.
+- Both items placed between "Free Plan" badge and Dark Mode toggle in the dropdown.
 
----
+### 4. Interview Room Transcript - Single Line with Blurred Container
+**Changes to `InterviewRoom.tsx`**:
+- The transcript bar already uses `truncate` for single-line, but the role label and text are on the same line via inline spans. This already works as single-line.
+- Make the container smaller/more compact with `text-xs` for the text, reduce padding.
+- Ensure text shrinks/truncates properly like the reference image (Nabulas app) -- compact transparent blurred pill.
+- Already has `bg-black/60 backdrop-blur-md rounded-full` which matches. Just need to ensure single line truncation works and make text slightly smaller.
 
-## 2. Fix "All Mock Tests" Tab
+### 5. Report Page - Chat Bubble UI Enhancement
+The chat bubbles already exist (lines 364-386 of InterviewReport.tsx). The current implementation already has:
+- User messages right-aligned with `bg-accent/10`
+- Officer messages left-aligned with `bg-muted`
+This matches the request. No changes needed here unless the user sees something different. Will verify the styling is correct.
 
-**Problem**: The interviews query uses `.limit(500)` which may cut off data. Also no way to view report details.
+### 6. Report Page - Custom Audio Player
+**Changes to `InterviewReport.tsx`**:
+- Replace the native `<audio>` element with a custom audio player component.
+- Features: play/pause button, progress bar/seek, current time / total time display, volume control.
+- Styled with brand colors: accent green for progress, primary for controls.
+- Compact card design matching the existing card style.
 
-**Solution**:
-- Remove the 500-row limit and use batch fetching (same pattern as Export Center) to load all interviews
-- Add a "View Report" button/link for each interview row that navigates to `/interview/{id}/report`
-- Add a status filter dropdown (All, Pending, In Progress, Completed, Failed)
-- Ensure the query includes user email from profiles join
-
----
-
-## 3. Add CSV Export to Every Table
-
-**Problem**: No way to export table data as CSV from individual admin tabs.
-
-**Solution**:
-- Add an "Export CSV" button to the `DataTableControls` component
-- The button exports the **currently filtered** data (not just current page) as a CSV file
-- Pass column definitions and filtered data as props
-- Each admin tab (Users, Admins, Countries, Visa Types, Interviews) gets the export capability
+### 7. Remove "Admin signup info" Toast/Banner
+The image shows a toast "To add admins, the user must first sign up..." -- this is likely in AdminAdmins.tsx. Need to check and either remove or suppress it for existing signed-up users.
 
 ---
 
@@ -54,49 +51,44 @@ Three main improvements to the admin panel:
 
 ### Database Migration
 ```sql
--- Add email column to profiles
-ALTER TABLE public.profiles ADD COLUMN email text;
-
--- Backfill existing emails from auth.users
-UPDATE public.profiles SET email = u.email
-FROM auth.users u WHERE u.id = profiles.user_id;
-
--- Update trigger to capture email on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public' AS $$
-BEGIN
-  INSERT INTO public.profiles (user_id, full_name, avatar_url, email)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name',
-          NEW.raw_user_meta_data->>'avatar_url', NEW.email);
-  INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user');
-  RETURN NEW;
-END;
-$$;
+-- Add FK from interviews to profiles for PostgREST join support
+ALTER TABLE public.interviews 
+ADD CONSTRAINT interviews_user_id_profiles_fkey 
+FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
 ```
-
-### DataTableControls Enhancement
-Add optional `onExportCSV` callback prop. When provided, renders an "Export CSV" button. Each admin page passes a function that:
-1. Takes the filtered array (all matching rows, not just current page)
-2. Converts to CSV string with headers
-3. Downloads as `.csv` file
-
-### CSV Helper Function
-A shared utility `downloadCSV(rows, columns, filename)` that:
-- Takes an array of objects, column config `{key, label}[]`, and filename
-- Generates CSV with proper escaping (commas, quotes, newlines)
-- Triggers browser download
 
 ### Files to Create/Modify
 
-| File | Action |
-|------|--------|
-| Migration SQL | Add `email` column + update trigger + backfill |
-| `src/components/admin/DataTableControls.tsx` | Add Export CSV button + filter dropdown slot |
-| `src/lib/csv-export.ts` | New - shared CSV download utility |
-| `src/pages/admin/AdminUsers.tsx` | Show email column, pass CSV export |
-| `src/pages/admin/AdminAdmins.tsx` | Pass CSV export |
-| `src/pages/admin/AdminCountries.tsx` | Pass CSV export |
-| `src/pages/admin/AdminVisaTypes.tsx` | Pass CSV export |
-| `src/pages/admin/AdminInterviews.tsx` | Batch fetch, status filter, email, report link, CSV export |
+| File | Action | Description |
+|------|--------|-------------|
+| Migration SQL | Create | Add FK interviews -> profiles |
+| `src/App.tsx` | Edit | Change defaultTheme to "system", enableSystem to true |
+| `src/components/layout/AppSidebar.tsx` | Edit | Add Edit Profile dialog + Change Password dialog to user dropdown |
+| `src/pages/InterviewRoom.tsx` | Edit | Refine transcript bar for compact single-line display |
+| `src/pages/InterviewReport.tsx` | Edit | Replace native audio with custom branded audio player |
+| `src/pages/admin/AdminInterviews.tsx` | Edit | Fix profiles join hint to use new FK name |
+
+### Custom Audio Player Design
+- Rounded card with brand colors
+- Play/Pause button (accent green circle)
+- Seekable progress bar (accent green fill on muted track)
+- Time display: `elapsed / total` in `text-muted-foreground`
+- Uses HTML5 Audio API via `useRef<HTMLAudioElement>`
+
+### Edit Profile Dialog
+- Dialog with two fields: Full Name (text input), Avatar URL (text input)
+- Pre-populated from current profile data
+- Saves via `supabase.from("profiles").update({ full_name, avatar_url }).eq("user_id", user.id)`
+
+### Change Password Dialog  
+- Dialog with: New Password, Confirm Password fields
+- Validates match, minimum 6 chars
+- Calls `supabase.auth.updateUser({ password: newPassword })`
+- Shows success toast on completion
+
+### Transcript Bar Refinement
+- Reduce to `text-xs` for text content
+- Ensure the container is compact: `px-4 py-2` instead of `px-5 py-2.5`
+- Keep `truncate` on the container for text overflow
+- Matches the Nabulas reference: small, centered, blurred pill with shrinking text
 

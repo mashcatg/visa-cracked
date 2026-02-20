@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/sidebar-logo.png";
@@ -37,6 +37,13 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameName, setRenameName] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [changePassOpen, setChangePassOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passSaving, setPassSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -89,6 +96,30 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
     fetchInterviews();
     toast.success("Deleted!");
     if (pathname.includes(deleteId)) navigate("/dashboard");
+  }
+
+  async function handleEditProfile() {
+    if (!user || !editName.trim()) return;
+    setEditSaving(true);
+    const { error } = await supabase.from("profiles").update({ full_name: editName.trim() }).eq("user_id", user.id);
+    setEditSaving(false);
+    if (error) { toast.error("Failed to update profile"); return; }
+    setProfileName(editName.trim());
+    setEditProfileOpen(false);
+    toast.success("Profile updated!");
+  }
+
+  async function handleChangePassword() {
+    if (newPassword.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    if (newPassword !== confirmPassword) { toast.error("Passwords don't match"); return; }
+    setPassSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPassSaving(false);
+    if (error) { toast.error(error.message); return; }
+    setChangePassOpen(false);
+    setNewPassword("");
+    setConfirmPassword("");
+    toast.success("Password changed!");
   }
 
   const displayName = profileName || user?.email || "User";
@@ -262,6 +293,13 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
               <span className="text-[10px] font-semibold uppercase tracking-wider bg-accent/10 text-accent px-2 py-0.5 rounded-full">Free Plan</span>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { setEditName(profileName || ""); setEditProfileOpen(true); }} className="cursor-pointer">
+              <User className="h-3.5 w-3.5 mr-2" /> Edit Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
+              <Lock className="h-3.5 w-3.5 mr-2" /> Change Password
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <div className="px-2 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm">
                 {theme === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
@@ -302,6 +340,44 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Full Name</label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your name" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProfileOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditProfile} disabled={editSaving}>{editSaving ? "Saving..." : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={changePassOpen} onOpenChange={setChangePassOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Change Password</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">New Password</label>
+              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Confirm Password</label>
+              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangePassOpen(false)}>Cancel</Button>
+            <Button onClick={handleChangePassword} disabled={passSaving}>{passSaving ? "Saving..." : "Change Password"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

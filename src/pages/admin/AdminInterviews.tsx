@@ -36,7 +36,7 @@ export default function AdminInterviews() {
     while (true) {
       const { data, error } = await supabase
         .from("interviews")
-        .select("*, countries(name), visa_types(name), interview_reports(overall_score), profiles!interviews_user_id_fkey(full_name, email)")
+        .select("*, countries(name), visa_types(name), interview_reports(overall_score), profiles!interviews_user_id_profiles_fkey(full_name, email)")
         .order("created_at", { ascending: false })
         .range(from, from + BATCH_SIZE - 1);
       if (error) break;

@@ -19,7 +19,7 @@ import PublicReportPage from "./pages/PublicReportPage";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />

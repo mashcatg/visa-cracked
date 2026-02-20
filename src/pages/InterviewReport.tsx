@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, TrendingUp, Shield, MessageSquare, Award, Copy, Play, Mic2, BookOpen, Brain, Target, ArrowLeft, XOctagon, Clock, DollarSign, RefreshCw } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, TrendingUp, Shield, MessageSquare, Award, Copy, Mic2, BookOpen, Brain, Target, ArrowLeft, XOctagon, Clock, DollarSign, RefreshCw } from "lucide-react";
+import CustomAudioPlayer from "@/components/audio/CustomAudioPlayer";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -304,18 +305,8 @@ export default function InterviewReport() {
         </div>
       </div>
 
-      {/* Audio Player */}
-      {recordingUrl && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Play className="h-4 w-4 text-accent" />
-              <p className="text-sm font-medium">Interview Recording</p>
-            </div>
-            <audio controls className="w-full" src={recordingUrl} />
-          </CardContent>
-        </Card>
-      )}
+      {/* Custom Audio Player */}
+      {recordingUrl && <CustomAudioPlayer src={recordingUrl} />}
       {vapiLoading && !recordingUrl && (
         <Card>
           <CardContent className="p-4">

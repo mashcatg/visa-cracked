@@ -232,8 +232,29 @@ Deno.serve(async (req) => {
       y = drawWrappedText(page, report.summary, margin, y, maxWidth, fontRegular, 10, gray, 14);
     }
 
-    // Transcript
-    if (interview.transcript) {
+    // Transcript as chat bubbles
+    const messages = interview.messages;
+    if (Array.isArray(messages) && messages.length > 0) {
+      ensureSpace(60);
+      y -= 10;
+      page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.5, color: gray });
+      y -= 20;
+      page.drawText("CONVERSATION TRANSCRIPT", { x: margin, y, size: 12, font: fontBold, color: black });
+      y -= 20;
+
+      for (const msg of messages as any[]) {
+        if (!msg.content) continue;
+        const isUser = msg.role === "user";
+        const label = isUser ? "You:" : "Officer:";
+        const indent = isUser ? margin + 80 : margin;
+        const textWidth = isUser ? maxWidth - 80 : maxWidth - 80;
+        ensureSpace(30);
+        page.drawText(label, { x: indent, y, size: 9, font: fontBold, color: isUser ? accent : gray });
+        y -= 13;
+        y = drawWrappedText(page, msg.content, indent, y, textWidth, fontRegular, 9, gray, 12);
+        y -= 8;
+      }
+    } else if (interview.transcript) {
       ensureSpace(60);
       y -= 10;
       page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.5, color: gray });

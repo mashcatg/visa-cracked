@@ -177,9 +177,10 @@ export default function InterviewRoom() {
         return;
       }
 
-      toast.info("Analyzing your performance with AI...");
-      await supabase.functions.invoke("analyze-interview", { body: { interviewId: id } });
+      // Navigate to report immediately — Vapi data (audio, transcript, messages) is already saved
+      // Fire AI analysis in background; the report page will poll for it
       navigate(`/interview/${id}/report`);
+      supabase.functions.invoke("analyze-interview", { body: { interviewId: id } }).catch(console.error);
     } catch {
       toast.error("Error processing results");
       navigate(`/interview/${id}/report`);

@@ -245,13 +245,13 @@ export default function InterviewReport() {
   const detailedFeedback: DetailedFeedback[] = Array.isArray(report?.detailed_feedback) ? report.detailed_feedback : [];
 
   const categories = [
-    { label: "English", score: report?.english_score, icon: MessageSquare, color: "text-blue-500" },
-    { label: "Confidence", score: report?.confidence_score, icon: Award, color: "text-purple-500" },
-    { label: "Financial", score: report?.financial_clarity_score, icon: TrendingUp, color: "text-emerald-500" },
-    { label: "Intent", score: report?.immigration_intent_score, icon: Shield, color: "text-amber-500" },
-    { label: "Pronunciation", score: report?.pronunciation_score, icon: Mic2, color: "text-pink-500" },
-    { label: "Vocabulary", score: report?.vocabulary_score, icon: BookOpen, color: "text-cyan-500" },
-    { label: "Relevance", score: report?.response_relevance_score, icon: Brain, color: "text-indigo-500" },
+    { label: "English", score: report?.english_score, icon: MessageSquare, color: "text-accent" },
+    { label: "Confidence", score: report?.confidence_score, icon: Award, color: "text-accent" },
+    { label: "Financial", score: report?.financial_clarity_score, icon: TrendingUp, color: "text-accent" },
+    { label: "Intent", score: report?.immigration_intent_score, icon: Shield, color: "text-accent" },
+    { label: "Pronunciation", score: report?.pronunciation_score, icon: Mic2, color: "text-accent" },
+    { label: "Vocabulary", score: report?.vocabulary_score, icon: BookOpen, color: "text-accent" },
+    { label: "Relevance", score: report?.response_relevance_score, icon: Brain, color: "text-accent" },
   ];
 
   // Use live Vapi data for messages
@@ -449,6 +449,7 @@ export default function InterviewReport() {
       {hasSummary ? (
         <Card>
           <CardContent className="p-5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Summary</p>
             <p className="text-sm leading-relaxed text-muted-foreground">{report.summary}</p>
           </CardContent>
         </Card>

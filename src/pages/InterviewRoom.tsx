@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Loader2, Clock, Wifi, User } from "lucide-react";
+import { PhoneOff, Loader2, Clock, Wifi, User } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+const MAX_DURATION = 210; // 3:30
+
 function formatTime(seconds: number) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+  const m = Math.floor(seconds / 60).toString().padStart(1, "0");
   const s = (seconds % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 }
@@ -38,13 +40,11 @@ export default function InterviewRoom() {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState<"user" | "assistant" | null>(null);
-  const [userSubtitle, setUserSubtitle] = useState("");
-  const [assistantSubtitle, setAssistantSubtitle] = useState("");
-  const [micOn, setMicOn] = useState(true);
-  const [camOn, setCamOn] = useState(true);
+  const [lastTranscript, setLastTranscript] = useState<{ role: string; text: string } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [connectionQuality, setConnectionQuality] = useState<"good" | "fair" | "poor">("good");
   const [connectingMsgIdx, setConnectingMsgIdx] = useState(0);
+  const [swapped, setSwapped] = useState(false);
 
   // Rotating connecting messages
   useEffect(() => {
@@ -55,14 +55,24 @@ export default function InterviewRoom() {
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Elapsed timer
+  // Countdown timer
   useEffect(() => {
     if (!isConnected) return;
     const interval = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(interval);
   }, [isConnected]);
 
-  // HD Camera setup
+  // Auto-end at MAX_DURATION
+  useEffect(() => {
+    if (!isConnected) return;
+    if (elapsed >= MAX_DURATION) {
+      vapiRef.current?.stop();
+    } else if (elapsed === MAX_DURATION - 30) {
+      toast.warning("30 seconds remaining");
+    }
+  }, [elapsed, isConnected]);
+
+  // Camera setup
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({
@@ -79,17 +89,6 @@ export default function InterviewRoom() {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "m" || e.key === "M") toggleMic();
-      if (e.key === "v" || e.key === "V") toggleCam();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [micOn, camOn]);
 
   // Start Vapi call
   useEffect(() => {
@@ -119,14 +118,14 @@ export default function InterviewRoom() {
         vapi.on("message", (message: any) => {
           if (message.type === "transcript") {
             if (message.role === "assistant") {
-              setAssistantSubtitle(message.transcript);
+              setLastTranscript({ role: "Officer", text: message.transcript });
               setIsSpeaking("assistant");
               const text = (message.transcript || "").toLowerCase();
               if (FAREWELL_PHRASES.some((phrase) => text.includes(phrase))) {
                 setTimeout(() => { vapiRef.current?.stop(); }, 2000);
               }
             } else {
-              setUserSubtitle(message.transcript);
+              setLastTranscript({ role: "You", text: message.transcript });
               setIsSpeaking("user");
             }
           }
@@ -168,9 +167,7 @@ export default function InterviewRoom() {
         return;
       }
 
-      // Navigate to report immediately
       navigate(`/interview/${id}/report`);
-      // Fire AI analysis in background
       supabase.functions.invoke("analyze-interview", { body: { interviewId: id } }).catch(console.error);
     } catch {
       toast.error("Error processing results");
@@ -178,27 +175,7 @@ export default function InterviewRoom() {
     }
   }, [id, navigate]);
 
-  function toggleMic() {
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach((t) => (t.enabled = !t.enabled));
-      setMicOn((v) => !v);
-    }
-  }
-
-  function toggleCam() {
-    if (streamRef.current) {
-      streamRef.current.getVideoTracks().forEach((t) => (t.enabled = !t.enabled));
-      setCamOn((v) => !v);
-    }
-  }
-
-  const initials = user?.user_metadata?.full_name
-    ?.split(" ")
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "ME";
-
+  const remaining = MAX_DURATION - elapsed;
   const qualityColor = connectionQuality === "good" ? "bg-green-500" : connectionQuality === "fair" ? "bg-amber-500" : "bg-red-500";
 
   return (
@@ -209,9 +186,9 @@ export default function InterviewRoom() {
         <div className="flex items-center gap-4">
           {isConnected && (
             <>
-              <div className="flex items-center gap-2 text-white/70 text-sm">
+              <div className={`flex items-center gap-2 text-sm font-mono ${remaining <= 30 ? "text-red-400" : "text-white/70"}`}>
                 <Clock className="h-3.5 w-3.5" />
-                <span className="font-mono">{formatTime(elapsed)}</span>
+                <span>{formatTime(remaining)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Wifi className="h-3.5 w-3.5 text-white/50" />
@@ -222,36 +199,56 @@ export default function InterviewRoom() {
         </div>
       </div>
 
-      {/* Main area - User camera is the main view (Google Meet style) */}
+      {/* Main area */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {/* User video - MAIN VIEW */}
-        <div className="w-full h-full relative">
-          <video
-            ref={videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          />
-          {!camOn && (
-            <div className="absolute inset-0 bg-gradient-to-br from-[#002A26] via-[#003B36] to-[#002A26] flex items-center justify-center">
-              <div className="h-24 w-24 md:h-32 md:w-32 rounded-full bg-accent/20 flex items-center justify-center">
-                <span className="text-3xl md:text-4xl font-bold text-accent">{initials}</span>
+        {/* Main view: Bot avatar by default, user video if swapped */}
+        {!swapped ? (
+          /* Bot avatar - MAIN */
+          <div className="w-full h-full bg-gradient-to-br from-[#002A26] via-[#003B36] to-[#002A26] flex items-center justify-center">
+            <div className="relative">
+              {/* Pulsing rings when speaking */}
+              {isSpeaking === "assistant" && (
+                <>
+                  <div className="absolute inset-0 -m-8 rounded-full bg-accent/10 animate-ping" style={{ animationDuration: "2s" }} />
+                  <div className="absolute inset-0 -m-4 rounded-full bg-accent/5 animate-pulse" />
+                </>
+              )}
+              <div className={`${isMobile ? "h-32 w-32" : "h-44 w-44"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center border-2 ${isSpeaking === "assistant" ? "border-accent/60 shadow-2xl shadow-accent/20" : "border-white/10"} transition-all duration-300`}>
+                <User className={`${isMobile ? "h-16 w-16" : "h-20 w-20"} text-accent/70`} />
               </div>
+              <p className="text-center text-white/50 text-xs mt-4 font-medium">
+                {isSpeaking === "assistant" ? "Speaking..." : "Visa Officer"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* User video - MAIN (when swapped) */
+          <div className="w-full h-full relative">
+            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+          </div>
+        )}
+
+        {/* PIP: User camera (top-right) or Bot avatar (top-right if swapped) */}
+        <div
+          className={`absolute ${isMobile ? "top-3 right-3" : "top-4 right-4"} z-10 cursor-pointer`}
+          onClick={() => setSwapped((s) => !s)}
+        >
+          {!swapped ? (
+            /* User camera PIP */
+            <div className={`${isMobile ? "w-[80px] h-[110px]" : "w-[120px] h-[160px]"} rounded-xl overflow-hidden border-2 border-white/20 shadow-xl bg-[#002A26]`}>
+              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            /* Bot avatar PIP */
+            <div className={`${isMobile ? "w-20 h-20" : "w-28 h-28"} rounded-2xl bg-[#002A26]/90 backdrop-blur-md border ${isSpeaking === "assistant" ? "border-accent/60 shadow-lg shadow-accent/20" : "border-white/10"} flex flex-col items-center justify-center gap-1.5 transition-all duration-300`}>
+              <div className={`${isMobile ? "h-10 w-10" : "h-12 w-12"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-2 ring-accent/40 scale-110" : ""} transition-all duration-300`}>
+                <User className={`${isMobile ? "h-5 w-5" : "h-6 w-6"} text-accent/80`} />
+              </div>
+              <span className="text-white/70 text-[10px] font-medium">
+                {isSpeaking === "assistant" ? "Speaking..." : "Officer"}
+              </span>
             </div>
           )}
-        </div>
-
-        {/* Officer avatar - floating card top-left */}
-        <div className={`absolute ${isMobile ? "top-3 left-3" : "top-4 left-4"} z-10`}>
-          <div className={`${isMobile ? "w-20 h-20" : "w-28 h-28"} rounded-2xl bg-[#002A26]/90 backdrop-blur-md border ${isSpeaking === "assistant" ? "border-accent/60 shadow-lg shadow-accent/20" : "border-white/10"} flex flex-col items-center justify-center gap-1.5 transition-all duration-300`}>
-            <div className={`${isMobile ? "h-10 w-10" : "h-12 w-12"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center transition-all duration-300 ${isSpeaking === "assistant" ? "ring-2 ring-accent/40 scale-110" : ""}`}>
-              <User className={`${isMobile ? "h-5 w-5" : "h-6 w-6"} text-accent/80`} />
-            </div>
-            <span className="text-white/70 text-[10px] font-medium">
-              {isSpeaking === "assistant" ? "Speaking..." : "Officer"}
-            </span>
-          </div>
         </div>
 
         {/* Connecting overlay */}
@@ -277,27 +274,19 @@ export default function InterviewRoom() {
           </div>
         )}
 
-        {/* Subtitles overlay - bottom center */}
-        {isConnected && (assistantSubtitle || userSubtitle) && (
-          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${isMobile ? "w-[90%]" : "max-w-2xl w-full"} z-10`}>
-            <div className="bg-black/70 backdrop-blur-md rounded-xl px-5 py-3.5 space-y-2">
-              {assistantSubtitle && (
-                <p className="text-white text-sm md:text-base leading-relaxed">
-                  <span className="text-white/50 text-xs font-semibold mr-2">Officer</span>
-                  {assistantSubtitle}
-                </p>
-              )}
-              {userSubtitle && (
-                <p className="text-white text-sm md:text-base leading-relaxed">
-                  <span className="text-accent text-xs font-semibold mr-2">You</span>
-                  {userSubtitle}
-                </p>
-              )}
+        {/* Single-line transcript bar */}
+        {isConnected && lastTranscript && (
+          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[92%]" : "max-w-2xl w-full"} z-10`}>
+            <div className="bg-black/60 backdrop-blur-md rounded-full px-5 py-2.5 truncate">
+              <span className={`text-xs font-semibold mr-2 ${lastTranscript.role === "You" ? "text-accent" : "text-white/50"}`}>
+                {lastTranscript.role}
+              </span>
+              <span className="text-white text-sm">{lastTranscript.text}</span>
             </div>
           </div>
         )}
-        {isConnected && !assistantSubtitle && !userSubtitle && (
-          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10`}>
+        {isConnected && !lastTranscript && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
             <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2">
               <p className="text-white/30 text-xs">Listening...</p>
             </div>
@@ -305,26 +294,8 @@ export default function InterviewRoom() {
         )}
       </div>
 
-      {/* Controls bar */}
-      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#002A26]/80 backdrop-blur-sm border-t border-white/5 relative">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-full h-12 w-12 ${micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 hover:bg-red-500/30 text-red-400"}`}
-            onClick={toggleMic}
-          >
-            {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-full h-12 w-12 ${camOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/20 hover:bg-red-500/30 text-red-400"}`}
-            onClick={toggleCam}
-          >
-            {camOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-          </Button>
-        </div>
+      {/* Controls bar - only End Mock Test */}
+      <div className="flex items-center justify-center py-4 md:py-5 bg-[#002A26]/80 backdrop-blur-sm border-t border-white/5">
         <Button
           className="rounded-full h-12 px-6 md:px-8 bg-red-600 hover:bg-red-700 text-white font-semibold"
           onClick={() => vapiRef.current?.stop()}
@@ -333,12 +304,6 @@ export default function InterviewRoom() {
           <PhoneOff className="h-5 w-5 mr-2" />
           {isMobile ? "End" : "End Mock Test"}
         </Button>
-        {!isMobile && (
-          <div className="absolute right-6 bottom-5 text-xs text-white/20 space-x-3">
-            <span>M — mute</span>
-            <span>V — camera</span>
-          </div>
-        )}
       </div>
     </div>
   );

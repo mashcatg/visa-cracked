@@ -78,19 +78,21 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       </div>
 
       {/* CTA */}
-      <Card className="relative overflow-hidden border-accent/30 bg-gradient-to-r from-accent/10 via-accent/5 to-transparent">
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-accent/20 flex items-center justify-center shrink-0">
-              <Sparkles className="h-6 w-6 text-accent" />
+      <Card className="relative overflow-hidden border-accent/20 bg-gradient-to-br from-accent/10 via-accent/5 to-background">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-6 p-8 relative">
+          <div className="flex items-center gap-5">
+            <div className="h-14 w-14 rounded-2xl bg-accent/15 flex items-center justify-center shrink-0">
+              <Sparkles className="h-7 w-7 text-accent" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Ready to practice?</h2>
-              <p className="text-sm text-muted-foreground">Start a mock visa interview and get AI-powered feedback</p>
+              <h2 className="text-xl font-bold tracking-tight">Ready to ace your visa interview?</h2>
+              <p className="text-sm text-muted-foreground mt-1">Practice with our AI officer and get instant, detailed feedback on your performance</p>
             </div>
           </div>
-          <Button size="lg" className="shrink-0" onClick={onCreateInterview}>
+          <Button size="lg" className="shrink-0 px-8 h-12 text-base font-semibold" onClick={onCreateInterview}>
             Start Mock Test
+            <ArrowUpRight className="h-4 w-4 ml-2" />
           </Button>
         </CardContent>
       </Card>

@@ -273,12 +273,37 @@ Cover every Q&A exchange. Be constructive.${baseTranscript}`);
       }
     };
 
-    // Run all in parallel — don't await in the response
-    // We use waitUntil-style: fire them all and return immediately
-    const allWorkers = Promise.allSettled([worker1(), worker2(), worker3(), worker4()]);
+    // Run all in parallel and wait
+    await Promise.allSettled([worker1(), worker2(), worker3(), worker4()]);
 
-    // Wait for all workers to complete before returning
-    await allWorkers;
+    // Recompute overall_score as the true average of the 7 individual scores
+    try {
+      const { data: finalReport } = await serviceClient
+        .from("interview_reports")
+        .select("english_score, confidence_score, financial_clarity_score, immigration_intent_score, pronunciation_score, vocabulary_score, response_relevance_score")
+        .eq("interview_id", interviewId)
+        .single();
+
+      if (finalReport) {
+        const scores = [
+          finalReport.english_score,
+          finalReport.confidence_score,
+          finalReport.financial_clarity_score,
+          finalReport.immigration_intent_score,
+          finalReport.pronunciation_score,
+          finalReport.vocabulary_score,
+          finalReport.response_relevance_score,
+        ].filter((s): s is number => s !== null && s !== undefined);
+
+        if (scores.length > 0) {
+          const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+          await serviceClient.from("interview_reports").update({ overall_score: avg }).eq("interview_id", interviewId);
+          console.log("Recomputed overall_score:", avg, "from", scores.length, "categories");
+        }
+      }
+    } catch (e) {
+      console.error("Failed to recompute overall_score:", e);
+    }
 
     return new Response(
       JSON.stringify({ success: true }),

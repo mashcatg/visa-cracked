@@ -1,152 +1,138 @@
 
 
-# Plan: Major Update -- Failed Call Handling, Report Overhaul, Mock Room UI, Sidebar Actions, Poppins Font, Public Sharing
+# Plan: PDF Fix, AI Mock Naming, Interview Room UI, Processing States, Report UI, Search Drawer, Auto-Stop
 
-This is a large update covering 8 areas. Here is everything broken down.
-
----
-
-## 1. Handle Failed Calls -- No Report, No Credit Deduction
-
-**Problem:** Credits are deducted when creating a mock (before the call even starts). If the call fails, credits are lost and a broken report is shown.
-
-**Solution:**
-- Move credit deduction from `CreateInterviewModal` to the `get-interview-results` edge function -- only deduct after a successful call (status = "ended")
-- In `get-interview-results`, check Vapi's `callData.status`. If it is NOT "ended" (e.g. failed, no-answer), mark the interview as "failed" and skip credit deduction
-- In `InterviewRoom.tsx` `handleCallEnd`, if the call failed, show a toast and redirect to dashboard instead of the report page
-- In `InterviewReport.tsx`, if interview status is "failed", show a "Call Failed" message instead of analysis
-
-**Files changed:**
-- `src/components/interview/CreateInterviewModal.tsx` -- remove credit deduction
-- `supabase/functions/get-interview-results/index.ts` -- add status check, deduct credits only on success
-- `src/pages/InterviewRoom.tsx` -- handle failed status in post-call flow
-- `src/pages/InterviewReport.tsx` -- show failed state
+This plan covers 9 distinct issues reported by the user.
 
 ---
 
-## 2. Fix Report Generation -- Use Vapi Messages + Lovable AI Gateway
+## 1. Fix PDF Download -- "Failed to load PDF document"
 
-**Problem:** The analyze-interview function uses a direct Gemini API key instead of the Lovable AI gateway. The transcript may be empty if Vapi hasn't finished processing. The prompt needs to be richer.
+**Problem:** The `generate-report-pdf` edge function generates plain text but the client tries to open it as a PDF (`application/pdf`). The browser fails because it's not a valid PDF.
 
-**Solution:**
-- In `get-interview-results`, add a retry mechanism -- wait 5-10 seconds and retry the Vapi GET call if transcript is missing (recordings take a few seconds)
-- Store the full `messages` array (role + content per message) from Vapi
-- In `analyze-interview`, switch from direct Gemini API to the **Lovable AI Gateway** (`https://ai.gateway.lovable.dev/v1/chat/completions`) using `LOVABLE_API_KEY`
-- Use the structured messages array (not just plain transcript) for richer context
-- Expand the AI prompt to include more evaluation categories: pronunciation assessment, vocabulary range, response relevance, hesitation patterns, body language notes (from transcript cues), follow-up questions the officer might ask
-- Add new fields to the `interview_reports` table: `pronunciation_score`, `vocabulary_score`, `response_relevance_score`, `detailed_feedback` (JSON with per-question breakdown)
+**Solution:** Change the download to produce a `.txt` file instead of faking a PDF. Update the client-side blob type to `text/plain` and the filename to `.txt`.
 
-**Database migration:**
-```sql
-ALTER TABLE public.interview_reports 
-  ADD COLUMN pronunciation_score integer,
-  ADD COLUMN vocabulary_score integer,
-  ADD COLUMN response_relevance_score integer,
-  ADD COLUMN detailed_feedback jsonb;
+**File:** `src/pages/InterviewReport.tsx`
+- Change `type: "application/pdf"` to `type: "text/plain"`
+- Change filename from `.pdf` to `.txt`
+- Update button label from "PDF" to "Download Report"
+
+Also update `generate-report-pdf/index.ts` CORS headers to match the standard pattern.
+
+---
+
+## 2. AI-Generated Mock Test Name (via Gemini during Analysis)
+
+**Problem:** Mock tests currently get a manual name or default. User wants Gemini to generate a creative name during report analysis.
+
+**Solution:** In `analyze-interview/index.ts`, add `"mock_name"` to the JSON schema requested from the AI. After getting the response, update the interview's `name` field with the AI-generated name.
+
+Add to the AI prompt:
+```
+"mock_name": "<creative 3-5 word name for this mock test based on the interview context, e.g. 'The Confident Scholar' or 'Financial Clarity Challenge'>"
 ```
 
-**Files changed:**
-- `supabase/functions/get-interview-results/index.ts` -- add retry logic for Vapi data
-- `supabase/functions/analyze-interview/index.ts` -- switch to Lovable AI, enhanced prompt, more fields
-- Database migration for new columns
-
----
-
-## 3. Redesigned Report Page (Inspired by Reference Images)
-
-**Problem:** Current report is basic cards stacked vertically. The reference images show a two-column layout with transcript on the left and report summary on the right.
-
-**New Layout:**
-- **Header area**: Mock name, country/visa info, action buttons (Share, Delete, Play Recording, Download PDF)
-- **Two-column layout** (stacks on mobile):
-  - **Left column**: Scrollable chat-style transcript (messages rendered as bubbles -- user messages right-aligned in accent color, assistant messages left-aligned in muted), with a copy button
-  - **Right column**: Report card with sections for Overall Score (large circular badge), Category Scores, Key Observations, Grammar Mistakes, Red Flags, Improvement Plan, Follow-up Questions
-- **Below**: AI Summary section, Metadata (duration, status, date)
-- Responsive: on mobile, transcript and report stack vertically
-
-**Files changed:**
-- `src/pages/InterviewReport.tsx` -- complete redesign
-
----
-
-## 4. Mock Room UI Overhaul
-
-**Problem:** The self-view video (PIP) appears below the subtitles instead of overlaying the interviewer area. The layout doesn't feel like a real meeting app.
-
-**Solution:**
-- Restructure the layout: the main area is a grid with interviewer on top and controls at bottom
-- Self-view PIP is absolutely positioned in the **top-right corner** of the interviewer area (not below subtitles)
-- Subtitles appear as a floating overlay at the **bottom** of the interviewer area (semi-transparent, like real video call captions)
-- Improve the interviewer avatar with a subtle gradient orb animation (inspired by the reference mobile screenshot)
-- Better mobile layout: PIP smaller, subtitles condensed
-
-**Files changed:**
-- `src/pages/InterviewRoom.tsx` -- layout restructure
-
----
-
-## 5. Sidebar -- 3-Dot Menu on Recent Mocks (Share, Rename, Delete)
-
-**Solution:**
-- On each recent mock item in the sidebar, show a vertical 3-dot icon on hover
-- Clicking opens a dropdown with: Share, Rename, Delete
-- **Share**: generates a public URL `/mock/:id/public` and copies to clipboard
-- **Rename**: inline edit or small dialog to update `interviews.name`
-- **Delete**: confirmation dialog, then deletes the interview + report
-
-**Database changes:**
-- Add `is_public` boolean column to `interviews` table (default false)
-- Add a public route `/mock/:id/public` that fetches interview + report without auth
-
-```sql
-ALTER TABLE public.interviews ADD COLUMN is_public boolean NOT NULL DEFAULT false;
+After analysis, update the interview:
+```typescript
+await serviceClient.from("interviews").update({ name: analysis.mock_name }).eq("id", interviewId);
 ```
 
-**New RLS policy:** Allow anonymous SELECT on interviews where `is_public = true`
-
-**Files changed:**
-- `src/components/layout/AppSidebar.tsx` -- add hover 3-dot menu with dropdown
-- `src/App.tsx` -- add public report route
-- `src/pages/PublicReportPage.tsx` -- new page for public viewing (no auth required)
-- Database migration + RLS policy
+**File:** `supabase/functions/analyze-interview/index.ts`
 
 ---
 
-## 6. Poppins Font Everywhere
+## 3. Sidebar -- Fix Horizontal Scroll + Truncate Mock Names
 
-**Solution:**
-- Replace DM Sans + Space Grotesk imports with Poppins (weights 300-700)
-- Update `src/index.css` to use `font-family: 'Poppins', sans-serif` for both body and headings
+**Problem:** Long mock names cause horizontal overflow/scroll in the sidebar.
 
-**Files changed:**
-- `src/index.css`
+**Solution:** Already using `truncate` class on the name span, but the parent container needs `overflow-hidden` and `min-w-0`. Add `overflow-x-hidden` to the nav container and ensure each mock item has `min-w-0` on the flex container.
 
----
-
-## 7. Deduct Credits Only After Successful Call (Recap)
-
-The credit flow changes to:
-1. User creates mock -- interview record created, NO credits deducted yet
-2. Call happens via Vapi
-3. Call ends -- `get-interview-results` fetches Vapi data
-4. If call status is "ended" (success) -- deduct 10 credits
-5. If call failed -- mark interview as "failed", no credit deduction
-6. Then `analyze-interview` runs only if status is "completed"
+**File:** `src/components/layout/AppSidebar.tsx`
+- Add `overflow-x-hidden` to the nav element
+- Add `min-w-0` to the mock item's parent div
+- Ensure `max-w-[calc(100%-2rem)]` on the name span for proper truncation with the 3-dot menu
 
 ---
 
-## 8. Summary of All Files Changed
+## 4. Interview Room -- Dark Green Background + Better UI
+
+**Problem:** The interview room uses `bg-[#1a1a2e]` (dark navy). User wants dark green from the brand color codes (primary is `hsl(168 100% 11%)` which is `#003B36` -- a deep dark green/teal).
+
+**Solution:** Replace all `#1a1a2e`, `#0f0f23`, `#16162a` color references with the brand dark green palette:
+- Main bg: `bg-[#003B36]` (primary dark green)
+- Gradient: `from-[#002A26] via-[#003B36] to-[#002A26]`
+- Header/controls bar: `bg-[#002A26]/80`
+- PIP cam-off bg: `bg-[#003B36]`
+
+**File:** `src/pages/InterviewRoom.tsx`
+
+---
+
+## 5. Processing Screen -- Animated Rotating Messages + Longer Wait
+
+**Problem:** After call ends, it just shows "Analyzing your mock test..." forever. User wants rotating motivational/info texts and acknowledgment that it takes 1-2 minutes.
+
+**Solution:** Add an array of rotating messages that cycle every 4 seconds:
+```
+"Fetching your interview transcript..."
+"Analyzing your responses with AI..."
+"Evaluating grammar and pronunciation..."
+"Checking for red flags..."
+"Generating detailed feedback..."
+"Scoring your confidence level..."
+"Almost there, preparing your report..."
+```
+
+Show a progress-like indicator and "This usually takes 1-2 minutes" text.
+
+**File:** `src/pages/InterviewRoom.tsx` -- the `isProcessing` block
+
+---
+
+## 6. Auto-Stop When Bot Says "Call Ended"
+
+**Problem:** When the Vapi assistant says goodbye/ends the call, the webcall should auto-stop.
+
+**Solution:** In the `vapi.on("message")` handler, check if the assistant's transcript contains phrases like "call ended", "goodbye", "interview is over", "that concludes". If detected, call `vapiRef.current?.stop()` after a 2-second delay.
+
+Also listen for the Vapi `call-end` event which already triggers `handleCallEnd` -- but add detection of the bot's farewell message to proactively end the call from the client side.
+
+**File:** `src/pages/InterviewRoom.tsx`
+
+---
+
+## 7. Search Modal as Drawer on Mobile + White Background for Mock Names
+
+**Problem:** The CommandDialog (search palette) doesn't adapt to mobile and the mock names need white background styling.
+
+**Solution:** In `DashboardLayout.tsx`, conditionally render the search as a `Drawer` (from vaul) on mobile instead of `CommandDialog`. Inside the drawer, show a search input and filtered list of mocks with white/light background cards.
+
+**File:** `src/components/layout/DashboardLayout.tsx`
+
+---
+
+## 8. Report Page -- Fix "10min+ analyzing" Issue + UI Improvements
+
+**Problem:** The report page shows "Analyzing..." indefinitely if the report hasn't been created yet. There's no polling or retry.
+
+**Solution:** Add polling logic -- if `report` is null when the page loads but the interview status is "completed", poll the database every 5 seconds (up to 30 attempts = 2.5 minutes max) to check if the report has been generated.
+
+Also improve the "analyzing" state to show the same rotating messages as the processing screen.
+
+**File:** `src/pages/InterviewReport.tsx`
+
+---
+
+## 9. Summary of All File Changes
 
 | File | Change |
 |------|--------|
-| `src/index.css` | Poppins font |
-| `src/components/interview/CreateInterviewModal.tsx` | Remove credit deduction |
-| `src/components/layout/AppSidebar.tsx` | 3-dot hover menu on recent mocks |
-| `src/pages/InterviewRoom.tsx` | Layout fix (PIP position, subtitles overlay), handle failed calls |
-| `src/pages/InterviewReport.tsx` | Complete redesign with 2-column layout, chat transcript, richer report |
-| `src/pages/PublicReportPage.tsx` | New -- public report view |
-| `src/App.tsx` | Add public report route |
-| `supabase/functions/get-interview-results/index.ts` | Retry logic, credit deduction, status check |
-| `supabase/functions/analyze-interview/index.ts` | Switch to Lovable AI, enhanced prompt, more fields |
-| Database migration | New columns on interview_reports, is_public on interviews, RLS for public access |
+| `src/pages/InterviewRoom.tsx` | Dark green bg, rotating processing messages, auto-stop on bot farewell, better UI |
+| `src/pages/InterviewReport.tsx` | Fix PDF download as text, add polling for report, improve analyzing state |
+| `src/components/layout/DashboardLayout.tsx` | Search as Drawer on mobile with white bg |
+| `src/components/layout/AppSidebar.tsx` | Fix sidebar overflow, truncation |
+| `supabase/functions/analyze-interview/index.ts` | Add mock_name to AI prompt, update interview name |
+| `supabase/functions/generate-report-pdf/index.ts` | Fix CORS headers |
+
+No database migrations needed.
 

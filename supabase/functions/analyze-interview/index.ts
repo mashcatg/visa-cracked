@@ -7,6 +7,36 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function callAI(apiKey: string, systemPrompt: string, userPrompt: string): Promise<any> {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("AI gateway error:", res.status, errText);
+    throw new Error(`AI gateway error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  let text = data.choices?.[0]?.message?.content || "";
+  text = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+  return JSON.parse(text);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -27,10 +57,8 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(
-      authHeader.replace("Bearer ", "")
-    );
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,16 +87,47 @@ Deno.serve(async (req) => {
 
     if (interview.status === "failed") {
       return new Response(
-        JSON.stringify({ success: false, error: "Interview failed, no analysis needed" }),
+        JSON.stringify({ success: false, error: "Interview failed" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const transcript = interview.transcript || "";
-    const messages = interview.messages || [];
-    const countryName = (interview.countries as any)?.name || "Unknown";
-    const visaType = (interview.visa_types as any)?.name || "Unknown";
+    // Fetch live transcript from Vapi
+    let vapiMessages: any[] = [];
+    let vapiTranscript = "";
+    let endedReason = "";
 
+    if (interview.vapi_call_id) {
+      const vapiKey = Deno.env.get("VAPI_PRIVATE_KEY");
+      if (vapiKey) {
+        try {
+          // Try with per-visa key first
+          let privateKey = vapiKey;
+          if (interview.visa_type_id) {
+            const { data: visaType } = await serviceClient
+              .from("visa_types")
+              .select("vapi_private_key")
+              .eq("id", interview.visa_type_id)
+              .single();
+            if (visaType?.vapi_private_key) privateKey = visaType.vapi_private_key;
+          }
+
+          const vapiRes = await fetch(
+            `https://api.vapi.ai/call/${interview.vapi_call_id}`,
+            { headers: { Authorization: `Bearer ${privateKey}` } }
+          );
+          const callData = await vapiRes.json();
+          vapiMessages = callData?.artifact?.messages ?? [];
+          vapiTranscript = callData?.artifact?.transcript ?? "";
+          endedReason = callData?.endedReason ?? "";
+        } catch (e) {
+          console.error("Failed to fetch Vapi data for analysis:", e);
+        }
+      }
+    }
+
+    // Build conversation text
+    const messages = vapiMessages.length > 0 ? vapiMessages : (interview.messages || []);
     let conversationContext = "";
     if (Array.isArray(messages) && messages.length > 0) {
       conversationContext = messages
@@ -76,11 +135,11 @@ Deno.serve(async (req) => {
         .map((m: any) => `${m.role === "assistant" ? "Officer" : "Applicant"}: ${m.content || m.message || ""}`)
         .join("\n\n");
     }
-    
-    const textToAnalyze = conversationContext || transcript;
-    
+
+    const textToAnalyze = conversationContext || vapiTranscript || interview.transcript || "";
+
     if (!textToAnalyze || textToAnalyze.trim().length < 20) {
-      return new Response(JSON.stringify({ error: "Insufficient transcript data for analysis" }), {
+      return new Response(JSON.stringify({ error: "Insufficient transcript data" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -94,148 +153,135 @@ Deno.serve(async (req) => {
       });
     }
 
-    const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "system",
-              content: `You are an expert visa interview evaluator and language coach specializing in ${countryName} ${visaType} visa interviews. You must return ONLY valid JSON with no markdown, no code blocks, no extra text.`,
-            },
-            {
-              role: "user",
-              content: `Analyze this ${countryName} ${visaType} visa mock interview and return a comprehensive evaluation as JSON.
+    const countryName = (interview.countries as any)?.name || "Unknown";
+    const visaType = (interview.visa_types as any)?.name || "Unknown";
 
-Return ONLY valid JSON with this exact structure:
+    // Context about auto-cut
+    const autoCutNote = (endedReason && (endedReason.includes("max-duration") || endedReason === "customer-ended-call-too-short"))
+      ? "\n\nIMPORTANT: This interview was automatically terminated because the maximum time limit was reached. The applicant did not finish the interview naturally. This should be considered a NEGATIVE factor in the evaluation — it shows poor time management or inability to provide concise answers."
+      : "";
+
+    const baseSystemPrompt = `You are an expert visa interview evaluator specializing in ${countryName} ${visaType} visa interviews. Return ONLY valid JSON with no markdown, no code blocks, no extra text.`;
+    const baseTranscript = `\n\nInterview Transcript:\n${textToAnalyze}${autoCutNote}`;
+
+    // Upsert a blank row so report page knows analysis started
+    await serviceClient.from("interview_reports").upsert(
+      { interview_id: interviewId },
+      { onConflict: "interview_id" }
+    );
+
+    // Fire 4 parallel workers
+    const worker1 = async () => {
+      try {
+        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with exactly these fields:
 {
-  "mock_name": "<creative 3-5 word name for this mock test based on the interview context, e.g. 'The Confident Scholar' or 'Financial Clarity Challenge'>",
-  "overall_score": <number 0-100>,
-  "english_score": <number 0-100>,
-  "confidence_score": <number 0-100>,
-  "financial_clarity_score": <number 0-100>,
-  "immigration_intent_score": <number 0-100>,
-  "pronunciation_score": <number 0-100>,
-  "vocabulary_score": <number 0-100>,
-  "response_relevance_score": <number 0-100>,
+  "mock_name": "<creative 3-5 word name for this mock test>",
+  "overall_score": <number 0-100, weighted average considering all aspects>,
+  "summary": "<3-4 sentence comprehensive summary of performance>"
+}
+
+Be honest and thorough.${baseTranscript}`);
+
+        if (result.mock_name) {
+          await serviceClient.from("interviews").update({ name: result.mock_name }).eq("id", interviewId);
+        }
+        await serviceClient.from("interview_reports").update({
+          overall_score: result.overall_score,
+          summary: result.summary,
+        }).eq("interview_id", interviewId);
+        console.log("Worker 1 (summary) completed");
+      } catch (e) {
+        console.error("Worker 1 failed:", e);
+      }
+    };
+
+    const worker2 = async () => {
+      try {
+        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with exactly these 7 scores (each 0-100):
+{
+  "english_score": <grammar accuracy, sentence structure, fluency>,
+  "confidence_score": <directness, absence of hesitation, clarity>,
+  "financial_clarity_score": <how well financial situation explained>,
+  "immigration_intent_score": <clarity of purpose, return plan, ties to home>,
+  "pronunciation_score": <clarity of speech, comprehensibility>,
+  "vocabulary_score": <range and appropriateness for formal interview>,
+  "response_relevance_score": <how directly each question was answered>
+}${baseTranscript}`);
+
+        await serviceClient.from("interview_reports").update({
+          english_score: result.english_score,
+          confidence_score: result.confidence_score,
+          financial_clarity_score: result.financial_clarity_score,
+          immigration_intent_score: result.immigration_intent_score,
+          pronunciation_score: result.pronunciation_score,
+          vocabulary_score: result.vocabulary_score,
+          response_relevance_score: result.response_relevance_score,
+        }).eq("interview_id", interviewId);
+        console.log("Worker 2 (scores) completed");
+      } catch (e) {
+        console.error("Worker 2 failed:", e);
+      }
+    };
+
+    const worker3 = async () => {
+      try {
+        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with:
+{
   "grammar_mistakes": [
-    {"original": "<exact phrase said>", "corrected": "<corrected version>", "explanation": "<brief explanation of the error>"}
+    {"original": "<exact phrase>", "corrected": "<corrected version>", "explanation": "<brief explanation>"}
   ],
-  "red_flags": ["<description of concern that a real visa officer would flag>"],
-  "improvement_plan": ["<specific, actionable recommendation>"],
+  "red_flags": ["<concerns a real visa officer would flag>"],
+  "improvement_plan": ["<specific, actionable recommendation>"]
+}
+
+Find EVERY grammar mistake. Flag EVERY red flag. Provide at least 5 improvement recommendations. Be thorough.${baseTranscript}`);
+
+        await serviceClient.from("interview_reports").update({
+          grammar_mistakes: result.grammar_mistakes || [],
+          red_flags: result.red_flags || [],
+          improvement_plan: result.improvement_plan || [],
+        }).eq("interview_id", interviewId);
+        console.log("Worker 3 (issues) completed");
+      } catch (e) {
+        console.error("Worker 3 failed:", e);
+      }
+    };
+
+    const worker4 = async () => {
+      try {
+        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview. For EACH question-answer exchange, return JSON:
+{
   "detailed_feedback": [
     {
       "question": "<officer's question>",
       "answer": "<applicant's response summary>",
       "score": <0-100>,
-      "feedback": "<what was good/bad about this answer>",
-      "suggested_answer": "<a better way to answer this>"
+      "feedback": "<what was good/bad>",
+      "suggested_answer": "<a better way to answer>"
     }
-  ],
-  "summary": "<3-4 sentence comprehensive summary of performance>"
+  ]
 }
 
-Scoring guidelines:
-- Overall: Weighted average of all category scores
-- English: Grammar accuracy, sentence structure, vocabulary usage, fluency
-- Confidence: Directness of answers, absence of hesitation words (um, uh, like), clarity
-- Financial Clarity: How well financial situation, sponsorship, funding sources are explained
-- Immigration Intent: Clarity of purpose, return plan, ties to home country, genuine intent
-- Pronunciation: Clarity of speech, word pronunciation, accent comprehensibility
-- Vocabulary: Range and appropriateness of vocabulary for formal interview context
-- Response Relevance: How directly and completely each question was answered
+Cover every Q&A exchange. Be constructive.${baseTranscript}`);
 
-Be extremely thorough:
-- Find EVERY grammar mistake, even minor ones
-- Flag EVERY potential red flag a real visa officer would notice
-- Provide at least 5 improvement recommendations
-- Give per-question feedback for each Q&A exchange
-- Be honest but constructive in feedback
-
-Interview Transcript:
-${textToAnalyze}`,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 8192,
-        }),
+        await serviceClient.from("interview_reports").update({
+          detailed_feedback: result.detailed_feedback || [],
+        }).eq("interview_id", interviewId);
+        console.log("Worker 4 (feedback) completed");
+      } catch (e) {
+        console.error("Worker 4 failed:", e);
       }
-    );
+    };
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("AI gateway error:", aiResponse.status, errText);
-      return new Response(JSON.stringify({ error: "AI analysis failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Run all in parallel — don't await in the response
+    // We use waitUntil-style: fire them all and return immediately
+    const allWorkers = Promise.allSettled([worker1(), worker2(), worker3(), worker4()]);
 
-    const aiData = await aiResponse.json();
-    let analysisText = aiData.choices?.[0]?.message?.content || "";
-
-    analysisText = analysisText
-      .replace(/```json\s*/g, "")
-      .replace(/```\s*/g, "")
-      .trim();
-
-    let analysis;
-    try {
-      analysis = JSON.parse(analysisText);
-    } catch {
-      console.error("Failed to parse AI response:", analysisText.substring(0, 500));
-      analysis = {
-        mock_name: "Mock Test",
-        overall_score: 50,
-        english_score: 50,
-        confidence_score: 50,
-        financial_clarity_score: 50,
-        immigration_intent_score: 50,
-        pronunciation_score: 50,
-        vocabulary_score: 50,
-        response_relevance_score: 50,
-        grammar_mistakes: [],
-        red_flags: ["Analysis parsing failed - please retry"],
-        improvement_plan: ["Please try the mock test again for a complete analysis"],
-        detailed_feedback: [],
-        summary: "The analysis encountered a parsing error. Please try running the mock test again.",
-      };
-    }
-
-    // Update interview name with AI-generated mock_name
-    if (analysis.mock_name) {
-      await serviceClient.from("interviews").update({ name: analysis.mock_name }).eq("id", interviewId);
-    }
-
-    // Store the report
-    await serviceClient.from("interview_reports").upsert(
-      {
-        interview_id: interviewId,
-        overall_score: analysis.overall_score,
-        english_score: analysis.english_score,
-        confidence_score: analysis.confidence_score,
-        financial_clarity_score: analysis.financial_clarity_score,
-        immigration_intent_score: analysis.immigration_intent_score,
-        pronunciation_score: analysis.pronunciation_score,
-        vocabulary_score: analysis.vocabulary_score,
-        response_relevance_score: analysis.response_relevance_score,
-        grammar_mistakes: analysis.grammar_mistakes,
-        red_flags: analysis.red_flags,
-        improvement_plan: analysis.improvement_plan,
-        detailed_feedback: analysis.detailed_feedback,
-        summary: analysis.summary,
-      },
-      { onConflict: "interview_id" }
-    );
+    // Wait for all workers to complete before returning
+    await allWorkers;
 
     return new Response(
-      JSON.stringify({ success: true, analysis }),
+      JSON.stringify({ success: true }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

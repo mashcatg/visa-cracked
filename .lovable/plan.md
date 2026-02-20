@@ -1,148 +1,73 @@
 
 
-# Premium Report Page Redesign + PDF Download + Dashboard Polish
+# Fix Admin Credits + Icon Colors + Sidebar Dropdown + Shadow Cleanup
 
-## Overview
+## Issues Found
 
-Complete overhaul of the report/results page to match the premium inspiration images (Nebulas-style layout with chat bubbles, clean sections, proper spacing). Fix transcript alignment (user right, AI left with chat bubbles). Create a well-designed branded PDF download. Polish all pages for production quality.
+### 1. Admin Credit Granting is Broken (Database Issue)
+The `profiles` table has NO admin UPDATE policy. The current policies only allow users to update their own profile (`auth.uid() = user_id`). When an admin tries to grant credits to another user, the `profiles.update()` call fails silently because the admin doesn't match the `user_id` of the target user.
 
----
+**Fix:** Add a new RLS policy: "Admins can update all profiles" for UPDATE command with `has_role(auth.uid(), 'admin'::app_role)`.
 
-## 1. Report Page (`InterviewReport.tsx`) -- Complete Redesign
+### 2. Red Flag and Grammar Icons Should Be Red/Orange
+Currently all icons use `text-accent` (green) due to the monochrome cleanup. But red flags and grammar mistakes are inherently negative indicators -- they should use contextual colors:
+- Red Flags: `text-red-500` (or `text-orange-500`)
+- Grammar Mistakes: `text-red-500`
 
-### Layout: Two-Column on Desktop (inspired by Nebulas screenshot)
+Files: `InterviewReport.tsx` and `PublicReportPage.tsx`
 
-Desktop: Left column (main content ~65%) + Right column (report sidebar ~35%)
-Mobile: Single column, stacked
+### 3. Sidebar Bottom: Replace Logout Icon with Dropdown
+Replace the current user section (avatar + name + logout icon) with:
+- Avatar + Name + `ChevronRight` icon
+- On hover/click: opens a dropdown menu containing:
+  - Email and name display
+  - Plan name (e.g., "Free Plan")
+  - Credit progress bar (current credits / visual indicator)
+  - Dark/Light mode toggle switch
+  - Logout button
 
-**Left Column (Main Content):**
-- Header with mock name, country/visa, date, duration, cost
-- Action buttons row: Share, Download PDF, Play Recording (inline audio player)
-- Transcript section with chat bubbles:
-  - AI/Officer messages: LEFT aligned, light gray background (`bg-muted`), rounded corners with tail on left
-  - User messages: RIGHT aligned, brand accent green background (`bg-accent/15`), rounded corners with tail on right
-  - Each bubble shows "Officer" or "You" label above the message text
-  - ScrollArea with proper height
-- AI Summary section below transcript
+### 4. Box Shadow 0 Everywhere
+Remove `shadow-sm` from the Card component base class. Remove any other `shadow-*` classes across the project to achieve a flat, premium look. Keep only intentional shadows (e.g., PIP video overlay in interview room).
 
-**Right Column (Sidebar Report):**
-- Overall Score (large circular gauge)
-- Category scores (7 items in a clean list, not grid)
-- Red Flags list
-- Grammar Mistakes list
-- Improvement Plan list
-- All in clean card sections with subtle separators, no tab system -- everything visible at once (scrollable)
+Files: `card.tsx` (remove `shadow-sm`), `Dashboard.tsx` (remove `hover:shadow-md`)
 
-### Remove Tabs System
-- Replace the tabbed interface with a flowing sidebar that shows all sections
-- Each section has a bold heading and clean list items
-- Much cleaner and more scannable than tabs
-
-### Shimmer Skeletons
-- Keep per-section shimmer loading as-is but match new layout positions
-
-### Analysis Failed State
-- Keep 2-minute timeout with "Regenerate Report" button
-
----
-
-## 2. Transcript Chat Bubbles
-
-Properly styled chat bubbles:
-- User messages: right-aligned, accent green tinted background, "You" label in small green text
-- Officer messages: left-aligned, muted gray background, "Officer" label in small gray text
-- Rounded corners with asymmetric radius (e.g., `rounded-2xl rounded-br-sm` for user)
-- Max width 75-80% of container
-- Consistent spacing between messages
-
----
-
-## 3. PDF Download (`generate-report-pdf`)
-
-Replace the current plain text `.txt` download with a properly formatted HTML-to-text report using brand colors:
-
-Since we can't generate real PDFs in edge functions easily, create a well-structured text report with:
-- Clean ASCII formatting with the brand name header
-- All scores formatted in a table-like structure
-- Transcript included
-- Grammar mistakes, red flags, improvement plan all formatted
-- Filename: `visa-cracked-report-{date}.txt`
-
-Note: The current approach generates a `.txt` file. We'll keep `.txt` but make it much better formatted. If the user wants actual PDF, that would require a PDF library in edge functions.
-
----
-
-## 4. Public Report Page (`PublicReportPage.tsx`)
-
-Apply the same two-column layout and chat bubble transcript styling. Remove redundant multi-color icons. Match the main report page design.
-
----
-
-## 5. Dashboard (`Dashboard.tsx`) -- Production Polish
-
-- Relative dates on recent mock test cards ("2 hours ago" using `date-fns` `formatDistanceToNow`)
-- Cleaner card hover states
-- Ensure CTA and stats match premium feel from earlier updates
+### 5. Interview Room Polish
+Minor refinements to make it feel more premium -- the layout is already good from the last update.
 
 ---
 
 ## Technical Details
 
-### InterviewReport.tsx Structure
-
-```text
-<div className="max-w-7xl mx-auto p-6">
-  <Header: name, country, date, duration, cost />
-  <ActionButtons: Share | Download | Play Recording />
-  
-  <div className="grid lg:grid-cols-[1fr_380px] gap-6">
-    <!-- Left Column -->
-    <div>
-      <Card: Transcript with chat bubbles />
-      <Card: AI Summary />
-    </div>
-    
-    <!-- Right Column (Sidebar) -->
-    <div className="space-y-4">
-      <Card: Overall Score gauge />
-      <Card: Category Scores (list) />
-      <Card: Red Flags />
-      <Card: Grammar Mistakes />
-      <Card: Improvement Plan />
-      <Card: Detailed Feedback (collapsible per question) />
-    </div>
-  </div>
-</div>
+### Database Migration
+```sql
+CREATE POLICY "Admins can update all profiles"
+ON public.profiles
+FOR UPDATE
+TO authenticated
+USING (has_role(auth.uid(), 'admin'::app_role))
+WITH CHECK (has_role(auth.uid(), 'admin'::app_role));
 ```
 
-### Chat Bubble Styling
+### Sidebar Dropdown (AppSidebar.tsx)
+Replace the bottom user section with a `DropdownMenu` that opens upward (`side="top"`):
+- Trigger: avatar + name + ChevronRight icon (replaces LogOut icon)
+- Content:
+  - Header: user name + email (small text)
+  - Separator
+  - Credit progress: `{credits} credits` with a small Progress bar
+  - Plan badge: "Free Plan" (hardcoded for now since no plan table exists)
+  - Dark/Light mode: a switch using `next-themes` (already installed)
+  - Separator
+  - Logout button with destructive styling
 
-```text
-User message:
-  - Container: flex justify-end
-  - Bubble: bg-accent/10 border border-accent/20 rounded-2xl rounded-br-sm px-4 py-3 max-w-[78%]
-  - Label: "You" in text-accent text-[10px] font-semibold
+### Icon Color Changes (InterviewReport.tsx + PublicReportPage.tsx)
+- `AlertTriangle` for Red Flags: change from `text-accent` to `text-orange-500`
+- `XCircle` for Grammar: change from `text-accent` to `text-red-500`
+- Red flag bullet points: change from `text-accent` to `text-orange-500`
+- Keep all other category score icons as `text-accent`
 
-Officer message:
-  - Container: flex justify-start
-  - Bubble: bg-muted rounded-2xl rounded-bl-sm px-4 py-3 max-w-[78%]
-  - Label: "Officer" in text-muted-foreground text-[10px] font-semibold
-```
-
-### Right Sidebar Sections
-
-Each section is a Card with:
-- Bold heading (e.g., "Category Scores", "Red Flags")
-- Clean list items with subtle dividers
-- No colored icons, just accent green where needed
-- Scores show as inline number + small progress bar
-
-### Dashboard Relative Dates
-
-Use `formatDistanceToNow` from `date-fns` (already installed):
-```text
-"2 hours ago" instead of "9/22/2025"
-```
+### Card Shadow Removal (card.tsx)
+Change Card base class from `shadow-sm` to `shadow-none`.
 
 ---
 
@@ -150,8 +75,10 @@ Use `formatDistanceToNow` from `date-fns` (already installed):
 
 | File | Change |
 |------|--------|
-| `src/pages/InterviewReport.tsx` | Complete redesign: two-column layout, chat bubbles, sidebar report, remove tabs |
-| `src/pages/PublicReportPage.tsx` | Match new report layout with chat bubbles and clean sections |
-| `src/pages/Dashboard.tsx` | Relative dates, polish |
-| `supabase/functions/generate-report-pdf/index.ts` | Better formatted text report with brand styling |
+| Database migration | Add admin UPDATE policy on profiles |
+| `src/components/ui/card.tsx` | Remove `shadow-sm`, use `shadow-none` |
+| `src/components/layout/AppSidebar.tsx` | Replace logout icon with dropdown (email, credits progress, dark/light mode, plan, logout) |
+| `src/pages/InterviewReport.tsx` | Red flag icon to orange, grammar icon to red |
+| `src/pages/PublicReportPage.tsx` | Same icon color changes |
+| `src/pages/Dashboard.tsx` | Remove `hover:shadow-md` from cards |
 

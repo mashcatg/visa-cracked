@@ -1,74 +1,102 @@
 
 
-# Add Export Center Tab to Admin Panel
+# Admin Panel Enhancements
 
 ## Overview
-Add a new "Export Center" tab in the admin panel that lists all database tables. Clicking any table name will download the entire table data (all rows, all columns) as a JSON file.
+Three main improvements to the admin panel:
+1. Show user emails in the Users table
+2. Fix "All Mock Tests" to show all users' data with report details
+3. Add CSV export button to every admin table
 
-## Changes
+---
 
-### 1. New Component: `src/pages/admin/AdminExportCenter.tsx`
-- Display a grid of cards, one per database table: `profiles`, `user_roles`, `countries`, `visa_types`, `interviews`, `interview_reports`, `credit_grants`
-- Each card shows the table name, an icon, and a "Download" button
-- On click, fetch ALL rows from that table using the Supabase client (admin RLS allows full read access)
-- Download the result as a `.json` file with all rows and columns
-- Show a loading spinner on the card while fetching
-- Handle the 1000-row default limit by using pagination (fetch in batches of 1000 using `.range()` until no more rows)
+## 1. Add Email to Profiles Table
 
-### 2. Update: `src/pages/admin/AdminLayout.tsx`
-- Add "Export Center" nav item with `Download` icon from lucide-react
-- Link to `/admin/export-center`
+**Problem**: The `profiles` table has no `email` column. Emails live in `auth.users` which can't be queried from the client.
 
-### 3. Update: `src/pages/AdminPage.tsx`
-- Add route: `<Route path="export-center" element={<AdminExportCenter />} />`
-- Import the new component
+**Solution**:
+- Add an `email` text column to the `profiles` table via migration
+- Update the `handle_new_user()` trigger to store `NEW.email` into profiles
+- Backfill existing users' emails using a one-time migration:
+  ```sql
+  UPDATE public.profiles SET email = u.email
+  FROM auth.users u WHERE u.id = profiles.user_id;
+  ```
+- Update `AdminUsers.tsx` to display the email column
+
+---
+
+## 2. Fix "All Mock Tests" Tab
+
+**Problem**: The interviews query uses `.limit(500)` which may cut off data. Also no way to view report details.
+
+**Solution**:
+- Remove the 500-row limit and use batch fetching (same pattern as Export Center) to load all interviews
+- Add a "View Report" button/link for each interview row that navigates to `/interview/{id}/report`
+- Add a status filter dropdown (All, Pending, In Progress, Completed, Failed)
+- Ensure the query includes user email from profiles join
+
+---
+
+## 3. Add CSV Export to Every Table
+
+**Problem**: No way to export table data as CSV from individual admin tabs.
+
+**Solution**:
+- Add an "Export CSV" button to the `DataTableControls` component
+- The button exports the **currently filtered** data (not just current page) as a CSV file
+- Pass column definitions and filtered data as props
+- Each admin tab (Users, Admins, Countries, Visa Types, Interviews) gets the export capability
+
+---
 
 ## Technical Details
 
-### Fetching All Rows (Bypassing 1000 Row Limit)
-```typescript
-async function fetchAllRows(tableName: string) {
-  let allRows: any[] = [];
-  let from = 0;
-  const batchSize = 1000;
-  while (true) {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select("*")
-      .range(from, from + batchSize - 1);
-    if (error) throw error;
-    allRows = [...allRows, ...(data || [])];
-    if (!data || data.length < batchSize) break;
-    from += batchSize;
-  }
-  return allRows;
-}
+### Database Migration
+```sql
+-- Add email column to profiles
+ALTER TABLE public.profiles ADD COLUMN email text;
+
+-- Backfill existing emails from auth.users
+UPDATE public.profiles SET email = u.email
+FROM auth.users u WHERE u.id = profiles.user_id;
+
+-- Update trigger to capture email on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path TO 'public' AS $$
+BEGIN
+  INSERT INTO public.profiles (user_id, full_name, avatar_url, email)
+  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name',
+          NEW.raw_user_meta_data->>'avatar_url', NEW.email);
+  INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user');
+  RETURN NEW;
+END;
+$$;
 ```
 
-### Download as JSON File
-```typescript
-function downloadJSON(data: any[], filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-```
+### DataTableControls Enhancement
+Add optional `onExportCSV` callback prop. When provided, renders an "Export CSV" button. Each admin page passes a function that:
+1. Takes the filtered array (all matching rows, not just current page)
+2. Converts to CSV string with headers
+3. Downloads as `.csv` file
 
-### Table List Config
-Each table entry will include: name, display label, icon, and description.
+### CSV Helper Function
+A shared utility `downloadCSV(rows, columns, filename)` that:
+- Takes an array of objects, column config `{key, label}[]`, and filename
+- Generates CSV with proper escaping (commas, quotes, newlines)
+- Triggers browser download
 
-### RLS Consideration
-The current admin RLS policies already grant SELECT access on all tables for admin users, so no database changes are needed.
-
-## Files to Create/Edit
+### Files to Create/Modify
 
 | File | Action |
 |------|--------|
-| `src/pages/admin/AdminExportCenter.tsx` | Create - new export center component |
-| `src/pages/admin/AdminLayout.tsx` | Edit - add Export Center nav tab |
-| `src/pages/AdminPage.tsx` | Edit - add export-center route |
+| Migration SQL | Add `email` column + update trigger + backfill |
+| `src/components/admin/DataTableControls.tsx` | Add Export CSV button + filter dropdown slot |
+| `src/lib/csv-export.ts` | New - shared CSV download utility |
+| `src/pages/admin/AdminUsers.tsx` | Show email column, pass CSV export |
+| `src/pages/admin/AdminAdmins.tsx` | Pass CSV export |
+| `src/pages/admin/AdminCountries.tsx` | Pass CSV export |
+| `src/pages/admin/AdminVisaTypes.tsx` | Pass CSV export |
+| `src/pages/admin/AdminInterviews.tsx` | Batch fetch, status filter, email, report link, CSV export |
 

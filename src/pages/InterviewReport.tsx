@@ -143,11 +143,11 @@ export default function InterviewReport() {
         body: { interviewId: id },
       });
       if (error) throw error;
-      const blob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], { type: "text/plain" });
+      const blob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = data.filename || `mock-report-${id}.txt`;
+      a.download = data.filename || `mock-report-${id}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -418,7 +418,7 @@ export default function InterviewReport() {
                     </div>
                     {fb.suggested_answer && (
                       <div className="bg-accent/5 rounded-lg p-3 border border-accent/10">
-                        <p className="text-xs font-medium text-accent mb-1">💡 Better Answer</p>
+                        <p className="text-xs font-medium text-accent mb-1">Better Answer</p>
                         <p className="text-sm text-muted-foreground">{fb.suggested_answer}</p>
                       </div>
                     )}

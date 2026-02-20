@@ -1,155 +1,148 @@
 
 
-# Premium UI Overhaul + Interview Room Redesign
+# Premium Report Page Redesign + PDF Download + Dashboard Polish
 
-## Summary of Changes
+## Overview
 
-This plan covers 5 major areas: Interview Room layout flip, transcript bar redesign, search modal styling, dashboard premium upgrade, and report page cleanup.
-
----
-
-## 1. Interview Room (`InterviewRoom.tsx`) -- Complete Redesign
-
-### Layout Flip (Reference: uploaded video call image)
-- **Main view**: Officer/bot avatar fills the full screen (large centered avatar with speaking animation -- pulsing rings, gradient background)
-- **User camera**: Small PIP (picture-in-picture) in top-right corner, ~120x160px on desktop, ~80x110px on mobile, rounded-xl with border
-- User can tap/click their PIP to swap views (toggle between bot-main/user-main)
-
-### Remove Controls
-- Remove mic toggle button and cam toggle button entirely
-- Remove keyboard shortcuts (M, V) and the hints text
-- Keep ONLY the "End Mock Test" red button centered at the bottom
-
-### Auto-End Timer (3:30 = 210 seconds)
-- Show countdown timer in header: `3:30` counting down to `0:00`
-- When timer hits 0, auto-call `vapiRef.current?.stop()` to end the mock test
-- Show a warning toast at 30 seconds remaining ("30 seconds remaining")
-
-### Single-Line Transcript Bar
-- Replace the multi-line subtitle overlay with a single-line transcript bar at the bottom
-- One continuous line that shows the latest transcript regardless of speaker
-- Format: `Officer: text here` or `You: text here` -- single line, no stacking
-- Styled as a slim bar with dark translucent background, text truncated with ellipsis if too long
-
-### Connecting Screen
-- Keep the rotating messages as they are (already implemented)
+Complete overhaul of the report/results page to match the premium inspiration images (Nebulas-style layout with chat bubbles, clean sections, proper spacing). Fix transcript alignment (user right, AI left with chat bubbles). Create a well-designed branded PDF download. Polish all pages for production quality.
 
 ---
 
-## 2. Search Modal (`DashboardLayout.tsx`) -- Premium Styling
+## 1. Report Page (`InterviewReport.tsx`) -- Complete Redesign
 
-Reference: uploaded search modal image (clean white card with "Search projects" heading, recent items list)
+### Layout: Two-Column on Desktop (inspired by Nebulas screenshot)
 
-- Restyle the `CommandDialog` to match the reference:
-  - Larger, rounder modal with soft shadow
-  - "Search mock tests" placeholder with search icon
-  - "RECENT MOCKS" section header in small caps
-  - Each item shows mock name with country flag icon and a timestamp on the right
-  - Clean white/cream background, subtle borders
-  - Close X button top-right
+Desktop: Left column (main content ~65%) + Right column (report sidebar ~35%)
+Mobile: Single column, stacked
 
----
+**Left Column (Main Content):**
+- Header with mock name, country/visa, date, duration, cost
+- Action buttons row: Share, Download PDF, Play Recording (inline audio player)
+- Transcript section with chat bubbles:
+  - AI/Officer messages: LEFT aligned, light gray background (`bg-muted`), rounded corners with tail on left
+  - User messages: RIGHT aligned, brand accent green background (`bg-accent/15`), rounded corners with tail on right
+  - Each bubble shows "Officer" or "You" label above the message text
+  - ScrollArea with proper height
+- AI Summary section below transcript
 
-## 3. Dashboard (`Dashboard.tsx`) -- Premium Production UI
+**Right Column (Sidebar Report):**
+- Overall Score (large circular gauge)
+- Category scores (7 items in a clean list, not grid)
+- Red Flags list
+- Grammar Mistakes list
+- Improvement Plan list
+- All in clean card sections with subtle separators, no tab system -- everything visible at once (scrollable)
 
-### Hero CTA Section
-- Larger, more impactful CTA card with a subtle gradient mesh background
-- Bigger heading, more descriptive subtitle
-- Prominent "Start Mock Test" button with accent color and arrow icon
+### Remove Tabs System
+- Replace the tabbed interface with a flowing sidebar that shows all sections
+- Each section has a bold heading and clean list items
+- Much cleaner and more scannable than tabs
 
-### Stat Cards
-- Use a monochrome accent color scheme (no multi-colored icons)
-- All icons use the brand accent green color only
-- Cleaner typography with more whitespace
-- Subtle hover elevation effect
+### Shimmer Skeletons
+- Keep per-section shimmer loading as-is but match new layout positions
 
-### Recent Mock Tests Grid
-- Cleaner card design with consistent monochrome styling
-- Score displayed more prominently
-- Status badges with subtle backgrounds
-- Date in relative format ("2 hours ago" instead of raw date)
-
-### Chart
-- Keep as is, already clean
-
----
-
-## 4. Report Page (`InterviewReport.tsx`) -- Premium Cleanup
-
-### Remove Multi-Color Icons
-- All category score icons currently use different colors (blue, purple, emerald, amber, pink, cyan, indigo) -- change ALL to use the brand accent green color
-- This applies to both the category cards and the tab icons
-
-### Monochrome Design System
-- Replace the rainbow of icon colors with a single accent color
-- Score colors (green/amber/red for good/ok/bad) stay as functional indicators
-- Card borders, backgrounds, and spacing made more consistent
-
-### Transcript Chat Style
-- User messages on the RIGHT side, bot messages on the LEFT side (already done, keeping it)
-
-### Audio Player
-- Keep the current full-width audio player design
-
-### Summary Section
-- Add a subtle heading "AI Summary" above the summary text
-
-### Tabs Section
-- Clean up tab styling to be more minimal
-- Remove excessive color variations in the feedback cards
+### Analysis Failed State
+- Keep 2-minute timeout with "Regenerate Report" button
 
 ---
 
-## 5. Public Report Page (`PublicReportPage.tsx`) -- Same Monochrome Treatment
+## 2. Transcript Chat Bubbles
 
-- Apply the same monochrome icon color changes as the main report page
-- All category icons use accent color instead of rainbow colors
+Properly styled chat bubbles:
+- User messages: right-aligned, accent green tinted background, "You" label in small green text
+- Officer messages: left-aligned, muted gray background, "Officer" label in small gray text
+- Rounded corners with asymmetric radius (e.g., `rounded-2xl rounded-br-sm` for user)
+- Max width 75-80% of container
+- Consistent spacing between messages
+
+---
+
+## 3. PDF Download (`generate-report-pdf`)
+
+Replace the current plain text `.txt` download with a properly formatted HTML-to-text report using brand colors:
+
+Since we can't generate real PDFs in edge functions easily, create a well-structured text report with:
+- Clean ASCII formatting with the brand name header
+- All scores formatted in a table-like structure
+- Transcript included
+- Grammar mistakes, red flags, improvement plan all formatted
+- Filename: `visa-cracked-report-{date}.txt`
+
+Note: The current approach generates a `.txt` file. We'll keep `.txt` but make it much better formatted. If the user wants actual PDF, that would require a PDF library in edge functions.
+
+---
+
+## 4. Public Report Page (`PublicReportPage.tsx`)
+
+Apply the same two-column layout and chat bubble transcript styling. Remove redundant multi-color icons. Match the main report page design.
+
+---
+
+## 5. Dashboard (`Dashboard.tsx`) -- Production Polish
+
+- Relative dates on recent mock test cards ("2 hours ago" using `date-fns` `formatDistanceToNow`)
+- Cleaner card hover states
+- Ensure CTA and stats match premium feel from earlier updates
 
 ---
 
 ## Technical Details
 
-### InterviewRoom.tsx Changes
+### InterviewReport.tsx Structure
 
-State changes:
-- Remove `micOn`, `camOn` states
-- Remove `toggleMic()`, `toggleCam()` functions  
-- Remove keyboard shortcut useEffect
-- Add `MAX_DURATION = 210` (3:30 in seconds)
-- Change `elapsed` to count DOWN from 210 instead of up
-- Add `swapped` state for toggling main view between bot and user
-
-Timer logic:
 ```text
-const remaining = MAX_DURATION - elapsed
-// elapsed counts up from 0
-// Display formatTime(MAX_DURATION - elapsed)
-// When elapsed >= MAX_DURATION, auto-stop
+<div className="max-w-7xl mx-auto p-6">
+  <Header: name, country, date, duration, cost />
+  <ActionButtons: Share | Download | Play Recording />
+  
+  <div className="grid lg:grid-cols-[1fr_380px] gap-6">
+    <!-- Left Column -->
+    <div>
+      <Card: Transcript with chat bubbles />
+      <Card: AI Summary />
+    </div>
+    
+    <!-- Right Column (Sidebar) -->
+    <div className="space-y-4">
+      <Card: Overall Score gauge />
+      <Card: Category Scores (list) />
+      <Card: Red Flags />
+      <Card: Grammar Mistakes />
+      <Card: Improvement Plan />
+      <Card: Detailed Feedback (collapsible per question) />
+    </div>
+  </div>
+</div>
 ```
 
-Layout structure:
+### Chat Bubble Styling
+
 ```text
-[Header: "Visa Cracked -- Mock Test" | Countdown Timer | Connection indicator]
-[Main area: 
-  - Full screen: Bot avatar (large circle with User icon, pulsing when speaking)
-  - Top-right corner: User video PIP (small, rounded, clickable to swap)
-]
-[Bottom transcript bar: single line, latest transcript]
-[Bottom control bar: only "End Mock Test" button]
+User message:
+  - Container: flex justify-end
+  - Bubble: bg-accent/10 border border-accent/20 rounded-2xl rounded-br-sm px-4 py-3 max-w-[78%]
+  - Label: "You" in text-accent text-[10px] font-semibold
+
+Officer message:
+  - Container: flex justify-start
+  - Bubble: bg-muted rounded-2xl rounded-bl-sm px-4 py-3 max-w-[78%]
+  - Label: "Officer" in text-muted-foreground text-[10px] font-semibold
 ```
 
-### Dashboard.tsx Changes
-- Stat card icons: all use `text-accent` instead of varied colors
-- CTA: enhanced gradient, bigger text
-- Mock test cards: cleaner hover states
+### Right Sidebar Sections
 
-### InterviewReport.tsx Changes  
-- Categories array: remove individual `color` properties, all use `text-accent`
-- Tab content: remove colored icons where excessive
+Each section is a Card with:
+- Bold heading (e.g., "Category Scores", "Red Flags")
+- Clean list items with subtle dividers
+- No colored icons, just accent green where needed
+- Scores show as inline number + small progress bar
 
-### DashboardLayout.tsx Changes
-- CommandDialog: add custom className for rounder corners, softer shadow
-- Add "RECENT MOCKS" heading in the command group
+### Dashboard Relative Dates
+
+Use `formatDistanceToNow` from `date-fns` (already installed):
+```text
+"2 hours ago" instead of "9/22/2025"
+```
 
 ---
 
@@ -157,9 +150,8 @@ Layout structure:
 
 | File | Change |
 |------|--------|
-| `src/pages/InterviewRoom.tsx` | Flip layout (bot main, user PIP), remove mic/cam controls, add 3:30 countdown, single-line transcript bar |
-| `src/pages/Dashboard.tsx` | Premium CTA, monochrome stat icons, cleaner mock test cards |
-| `src/pages/InterviewReport.tsx` | Monochrome icons (all accent), cleaner tabs, add summary heading |
-| `src/pages/PublicReportPage.tsx` | Monochrome icons to match report page |
-| `src/components/layout/DashboardLayout.tsx` | Search modal premium styling to match reference image |
+| `src/pages/InterviewReport.tsx` | Complete redesign: two-column layout, chat bubbles, sidebar report, remove tabs |
+| `src/pages/PublicReportPage.tsx` | Match new report layout with chat bubbles and clean sections |
+| `src/pages/Dashboard.tsx` | Relative dates, polish |
+| `supabase/functions/generate-report-pdf/index.ts` | Better formatted text report with brand styling |
 

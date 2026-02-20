@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, TrendingUp, Shield, MessageSquare, Award, Copy, Mic2, BookOpen, Brain, Target, ArrowLeft, XOctagon, Clock, DollarSign, RefreshCw } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, TrendingUp, Shield, MessageSquare, Award, Copy, Mic2, BookOpen, Brain, Target, ArrowLeft, XOctagon, Clock, RefreshCw } from "lucide-react";
 import CustomAudioPlayer from "@/components/audio/CustomAudioPlayer";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -30,7 +30,6 @@ interface VapiData {
   transcript: string | null;
   messages: Array<{ role: string; content: string; timestamp?: number }>;
   duration: number | null;
-  cost: number | null;
   endedReason: string | null;
 }
 
@@ -267,7 +266,7 @@ export default function InterviewReport() {
   const recordingUrl = vapiData?.recordingUrl ?? interview.recording_url;
   const transcript = vapiData?.transcript ?? interview.transcript;
   const duration = vapiData?.duration ?? interview.duration;
-  const cost = vapiData?.cost ?? interview.cost;
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -289,11 +288,6 @@ export default function InterviewReport() {
                   <Clock className="h-3 w-3" /> {formatDuration(duration)}
                 </span>
               )}
-              {cost != null && (
-                <span className="inline-flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" /> ${Number(cost).toFixed(2)}
-                </span>
-              )}
             </p>
           </div>
         </div>
@@ -310,9 +304,15 @@ export default function InterviewReport() {
       {vapiLoading && !recordingUrl && (
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-accent" />
-              <p className="text-sm text-muted-foreground">Loading recording...</p>
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded shimmer-block" />
+              <div className="h-10 w-10 rounded-full shimmer-block shrink-0" />
+              <div className="h-4 w-4 rounded shimmer-block" />
+              <div className="h-3 w-10 rounded shimmer-block" />
+              <div className="h-2 flex-1 rounded shimmer-block" />
+              <div className="h-3 w-10 rounded shimmer-block" />
+              <div className="h-4 w-4 rounded shimmer-block" />
+              <div className="h-2 w-16 rounded shimmer-block" />
             </div>
           </CardContent>
         </Card>

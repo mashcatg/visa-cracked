@@ -95,6 +95,7 @@
 @layer base {
   * {
     @apply border-border;
+    border-width: 0;
   }
 
   body {

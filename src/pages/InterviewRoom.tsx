@@ -4,10 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { PhoneOff, Loader2, Clock, Wifi, User } from "lucide-react";
+import { PhoneOff, Loader2, Clock, Wifi, User, Mic, MicOff, Subtitles } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-const MAX_DURATION = 210; // 3:30
+const MAX_DURATION = 207; // 3:27
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(1, "0");
@@ -45,12 +45,21 @@ export default function InterviewRoom() {
   const [connectionQuality, setConnectionQuality] = useState<"good" | "fair" | "poor">("good");
   const [connectingMsgIdx, setConnectingMsgIdx] = useState(0);
   const [swapped, setSwapped] = useState(false);
+  const [micOn, setMicOn] = useState(true);
+  const [subtitlesOn, setSubtitlesOn] = useState(true);
+  const [connectingCycled, setConnectingCycled] = useState(false);
 
-  // Rotating connecting messages
+  // Rotating connecting messages — lock on last after one cycle
   useEffect(() => {
     if (!isLoading) return;
     const interval = setInterval(() => {
-      setConnectingMsgIdx((i) => (i + 1) % CONNECTING_MESSAGES.length);
+      setConnectingMsgIdx((i) => {
+        if (i >= CONNECTING_MESSAGES.length - 1) {
+          setConnectingCycled(true);
+          return CONNECTING_MESSAGES.length - 1;
+        }
+        return i + 1;
+      });
     }, 3000);
     return () => clearInterval(interval);
   }, [isLoading]);
@@ -213,7 +222,7 @@ export default function InterviewRoom() {
                   <div className="absolute inset-0 -m-4 rounded-full bg-accent/5 animate-pulse" />
                 </>
               )}
-              <div className={`${isMobile ? "h-32 w-32" : "h-44 w-44"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center border-2 ${isSpeaking === "assistant" ? "border-accent/60 shadow-2xl shadow-accent/20" : "border-white/10"} transition-all duration-300`}>
+              <div className={`${isMobile ? "h-32 w-32" : "h-44 w-44"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center border-2 ${isSpeaking === "assistant" ? "border-accent/60" : "border-white/10"} transition-all duration-300`}>
                 <User className={`${isMobile ? "h-16 w-16" : "h-20 w-20"} text-accent/70`} />
               </div>
               <p className="text-center text-white/50 text-xs mt-4 font-medium">
@@ -235,12 +244,12 @@ export default function InterviewRoom() {
         >
           {!swapped ? (
             /* User camera PIP */
-            <div className={`${isMobile ? "w-[80px] h-[110px]" : "w-[120px] h-[160px]"} rounded-xl overflow-hidden border-2 border-white/20 shadow-xl bg-[#002A26]`}>
+            <div className={`${isMobile ? "w-[100px] h-[140px]" : "w-[160px] h-[200px]"} rounded-xl overflow-hidden border-2 border-white/20 bg-[#002A26]`}>
               <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
             </div>
           ) : (
             /* Bot avatar PIP */
-            <div className={`${isMobile ? "w-20 h-20" : "w-28 h-28"} rounded-2xl bg-[#002A26]/90 backdrop-blur-md border ${isSpeaking === "assistant" ? "border-accent/60 shadow-lg shadow-accent/20" : "border-white/10"} flex flex-col items-center justify-center gap-1.5 transition-all duration-300`}>
+            <div className={`${isMobile ? "w-20 h-20" : "w-28 h-28"} rounded-full bg-[#002A26]/90 backdrop-blur-md border ${isSpeaking === "assistant" ? "border-accent/60" : "border-white/10"} flex flex-col items-center justify-center gap-1.5 transition-all duration-300`}>
               <div className={`${isMobile ? "h-10 w-10" : "h-12 w-12"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-2 ring-accent/40 scale-110" : ""} transition-all duration-300`}>
                 <User className={`${isMobile ? "h-5 w-5" : "h-6 w-6"} text-accent/80`} />
               </div>
@@ -275,7 +284,7 @@ export default function InterviewRoom() {
         )}
 
         {/* Single-line transcript bar */}
-        {isConnected && lastTranscript && (
+        {subtitlesOn && isConnected && lastTranscript && (
           <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[92%]" : "max-w-2xl w-full"} z-10`}>
             <div className="bg-black/60 backdrop-blur-md rounded-full px-5 py-2.5 truncate">
               <span className={`text-xs font-semibold mr-2 ${lastTranscript.role === "You" ? "text-accent" : "text-white/50"}`}>
@@ -285,7 +294,7 @@ export default function InterviewRoom() {
             </div>
           </div>
         )}
-        {isConnected && !lastTranscript && (
+        {subtitlesOn && isConnected && !lastTranscript && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
             <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2">
               <p className="text-white/30 text-xs">Listening...</p>
@@ -294,8 +303,24 @@ export default function InterviewRoom() {
         )}
       </div>
 
-      {/* Controls bar - only End Mock Test */}
-      <div className="flex items-center justify-center py-4 md:py-5 bg-[#002A26]/80 backdrop-blur-sm border-t border-white/5">
+      {/* Controls bar */}
+      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#002A26]/80 backdrop-blur-sm border-t border-white/5">
+        <button
+          onClick={() => {
+            const newState = !micOn;
+            setMicOn(newState);
+            streamRef.current?.getAudioTracks().forEach((t) => { t.enabled = newState; });
+          }}
+          className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/80 hover:bg-red-500 text-white"}`}
+        >
+          {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => setSubtitlesOn((s) => !s)}
+          className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${subtitlesOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-white/5 text-white/40"}`}
+        >
+          <Subtitles className="h-4 w-4" />
+        </button>
         <Button
           className="rounded-full h-12 px-6 md:px-8 bg-red-600 hover:bg-red-700 text-white font-semibold"
           onClick={() => vapiRef.current?.stop()}

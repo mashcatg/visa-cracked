@@ -178,7 +178,12 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
                 <Link
                   to={`/interview/${interview.id}/report`}
                   onClick={onClose}
-                  className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors min-w-0 pr-8"
+                  className={cn(
+                    "flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors min-w-0 pr-8",
+                    pathname === `/interview/${interview.id}/report`
+                      ? "bg-sidebar-accent/50 text-sidebar-foreground"
+                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  )}
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate block max-w-[calc(100%-2rem)]">{interview.name || `${(interview.countries as any)?.flag_emoji || ''} ${(interview.visa_types as any)?.name || 'Mock'}`}</span>
@@ -240,7 +245,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-64 mb-1 bg-popover">
+          <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64 mb-1 bg-popover z-[100]">
             <DropdownMenuLabel className="pb-0">
               <p className="text-sm font-semibold truncate">{displayName}</p>
               <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
@@ -308,7 +313,7 @@ export default function AppSidebar(props: AppSidebarProps) {
   if (isMobile) {
     return (
       <>
-        <button onClick={() => setMobileOpen(true)} className="fixed top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg shadow-lg">
+        <button onClick={() => setMobileOpen(true)} className="fixed top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg">
           <Menu className="h-5 w-5" />
         </button>
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

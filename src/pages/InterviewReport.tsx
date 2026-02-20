@@ -173,8 +173,41 @@ export default function InterviewReport() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded shimmer-block" />
+          <div className="space-y-2">
+            <div className="h-5 w-48 rounded shimmer-block" />
+            <div className="h-3 w-32 rounded shimmer-block" />
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="space-y-6">
+            <div className="rounded-xl bg-card p-5 space-y-3">
+              {[1,2,3,4,5,6].map(i => <div key={i} className="h-10 w-full rounded-lg shimmer-block" />)}
+            </div>
+            <div className="rounded-xl bg-card p-5 space-y-2">
+              <div className="h-3 w-full rounded shimmer-block" />
+              <div className="h-3 w-4/5 rounded shimmer-block" />
+              <div className="h-3 w-3/5 rounded shimmer-block" />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="rounded-xl bg-card p-6 flex flex-col items-center">
+              <div className="w-28 h-28 rounded-full shimmer-block mb-3" />
+              <div className="h-3 w-24 rounded shimmer-block" />
+            </div>
+            <div className="rounded-xl bg-card p-4 space-y-3">
+              {[1,2,3,4,5,6,7].map(i => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-3.5 w-3.5 rounded shimmer-block" />
+                  <div className="h-3 flex-1 rounded shimmer-block" />
+                  <div className="h-4 w-8 rounded shimmer-block" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

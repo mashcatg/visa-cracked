@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, TrendingUp, Shield, MessageSquare, Award, Copy, Play, Mic2, BookOpen, Brain, Target, ArrowLeft, XOctagon } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle, XCircle, Loader2, TrendingUp, Shield, MessageSquare, Award, Copy, Play, Mic2, BookOpen, Brain, Target, ArrowLeft, XOctagon, Clock, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +24,16 @@ interface DetailedFeedback {
   suggested_answer?: string;
 }
 
+interface VapiData {
+  recordingUrl: string | null;
+  stereoRecordingUrl: string | null;
+  transcript: string | null;
+  messages: Array<{ role: string; content: string; timestamp?: number }>;
+  duration: number | null;
+  cost: number | null;
+  endedReason: string | null;
+}
+
 const ANALYZING_MESSAGES = [
   "Fetching your interview transcript...",
   "Analyzing your responses with AI...",
@@ -42,6 +52,8 @@ export default function InterviewReport() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [analyzingMsgIdx, setAnalyzingMsgIdx] = useState(0);
+  const [vapiData, setVapiData] = useState<VapiData | null>(null);
+  const [vapiLoading, setVapiLoading] = useState(false);
   const pollCountRef = useRef(0);
   const isMobile = useIsMobile();
 
@@ -53,6 +65,22 @@ export default function InterviewReport() {
     }, 4000);
     return () => clearInterval(interval);
   }, [report, loading]);
+
+  // Fetch Vapi data live
+  async function fetchVapiData(interviewId: string) {
+    setVapiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-vapi-data", {
+        body: { interviewId },
+      });
+      if (!error && data) {
+        setVapiData(data as VapiData);
+      }
+    } catch (e) {
+      console.error("Failed to fetch Vapi data:", e);
+    }
+    setVapiLoading(false);
+  }
 
   // Fetch interview + report, with polling if report is missing
   useEffect(() => {
@@ -70,13 +98,16 @@ export default function InterviewReport() {
         if (interviewData.interview_reports) {
           setReport(interviewData.interview_reports);
         }
+        // Fetch live Vapi data if call exists
+        if (interviewData.vapi_call_id && interviewData.status === "completed") {
+          fetchVapiData(id!);
+        }
       }
       setLoading(false);
       return interviewData;
     }
 
     fetchData().then((data) => {
-      // If no report yet, poll for it (analysis runs in background)
       if (data && !data.interview_reports && data.status !== "failed") {
         const pollInterval = setInterval(async () => {
           pollCountRef.current += 1;
@@ -85,7 +116,6 @@ export default function InterviewReport() {
             return;
           }
           
-          // Re-fetch full interview (name may be updated by AI) + report
           const { data: freshInterview } = await supabase
             .from("interviews")
             .select("*, countries(name, flag_emoji), visa_types(name), interview_reports(*)")
@@ -94,6 +124,10 @@ export default function InterviewReport() {
           
           if (freshInterview) {
             setInterview(freshInterview);
+            // Also fetch vapi data if not yet loaded
+            if (!vapiData && freshInterview.vapi_call_id && freshInterview.status === "completed") {
+              fetchVapiData(id!);
+            }
             if (freshInterview.interview_reports) {
               setReport(freshInterview.interview_reports);
               clearInterval(pollInterval);
@@ -126,10 +160,19 @@ export default function InterviewReport() {
   }
 
   function copyTranscript() {
-    if (interview?.transcript) {
-      navigator.clipboard.writeText(interview.transcript);
+    const text = vapiData?.transcript || interview?.transcript;
+    if (text) {
+      navigator.clipboard.writeText(text);
       toast.success("Transcript copied!");
     }
+  }
+
+  // Format duration
+  function formatDuration(seconds: number | null) {
+    if (!seconds) return null;
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return `${m}m ${s}s`;
   }
 
   if (loading) {
@@ -148,7 +191,6 @@ export default function InterviewReport() {
     );
   }
 
-  // Failed state
   if (interview.status === "failed") {
     return (
       <div className="flex h-full items-center justify-center p-8">
@@ -187,9 +229,13 @@ export default function InterviewReport() {
     { label: "Relevance", score: report?.response_relevance_score, icon: Brain, color: "text-indigo-500" },
   ];
 
-  // Parse messages for chat transcript
-  const messages: any[] = Array.isArray(interview.messages) ? interview.messages : [];
-  const chatMessages = messages.filter((m: any) => (m.role === "assistant" || m.role === "user") && m.content);
+  // Use live Vapi data for messages, fallback to DB
+  const rawMessages: any[] = vapiData?.messages ?? (Array.isArray(interview.messages) ? interview.messages : []);
+  const chatMessages = rawMessages.filter((m: any) => (m.role === "assistant" || m.role === "user") && m.content);
+  const recordingUrl = vapiData?.recordingUrl ?? interview.recording_url;
+  const transcript = vapiData?.transcript ?? interview.transcript;
+  const duration = vapiData?.duration ?? interview.duration;
+  const cost = vapiData?.cost ?? interview.cost;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -203,26 +249,52 @@ export default function InterviewReport() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
               {interview.name || "Mock Test Report"}
             </h1>
-            <p className="text-muted-foreground text-sm">
-              {(interview.countries as any)?.flag_emoji} {(interview.countries as any)?.name} — {(interview.visa_types as any)?.name} • {new Date(interview.created_at).toLocaleDateString()}
-              {interview.duration && ` • ${Math.floor(interview.duration / 60)}m ${interview.duration % 60}s`}
+            <p className="text-muted-foreground text-sm flex flex-wrap items-center gap-x-2">
+              <span>{(interview.countries as any)?.flag_emoji} {(interview.countries as any)?.name} — {(interview.visa_types as any)?.name}</span>
+              <span>• {new Date(interview.created_at).toLocaleDateString()}</span>
+              {duration != null && (
+                <span className="inline-flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> {formatDuration(duration)}
+                </span>
+              )}
+              {cost != null && (
+                <span className="inline-flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" /> ${Number(cost).toFixed(2)}
+                </span>
+              )}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {interview.recording_url && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={interview.recording_url} target="_blank" rel="noreferrer">
-                <Play className="h-3.5 w-3.5 mr-1.5" /> Listen
-              </a>
-            </Button>
-          )}
           <Button onClick={downloadReport} disabled={downloading} variant="outline" size="sm">
             {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
             Download Report
           </Button>
         </div>
       </div>
+
+      {/* Audio Player - always visible if available */}
+      {recordingUrl && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Play className="h-4 w-4 text-accent" />
+              <p className="text-sm font-medium">Interview Recording</p>
+            </div>
+            <audio controls className="w-full" src={recordingUrl} />
+          </CardContent>
+        </Card>
+      )}
+      {vapiLoading && !recordingUrl && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+              <p className="text-sm text-muted-foreground">Loading recording...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {!report ? (
         <div className="space-y-6">
@@ -258,21 +330,8 @@ export default function InterviewReport() {
             </CardContent>
           </Card>
 
-          {/* REAL Audio Player - show immediately if available */}
-          {interview.recording_url && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Play className="h-4 w-4 text-accent" />
-                  <p className="text-sm font-medium">Interview Recording</p>
-                </div>
-                <audio controls className="w-full" src={interview.recording_url} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* REAL Transcript - show immediately if available */}
-          {(chatMessages.length > 0 || interview.transcript) && (
+          {/* REAL Transcript - show immediately from Vapi data */}
+          {(chatMessages.length > 0 || transcript) && (
             <Card>
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -304,7 +363,7 @@ export default function InterviewReport() {
                     </div>
                   ) : (
                     <div className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                      {interview.transcript}
+                      {transcript}
                     </div>
                   )}
                 </ScrollArea>
@@ -381,19 +440,6 @@ export default function InterviewReport() {
             </Card>
           )}
 
-          {/* Audio Player - Prominent */}
-          {interview.recording_url && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Play className="h-4 w-4 text-accent" />
-                  <p className="text-sm font-medium">Interview Recording</p>
-                </div>
-                <audio controls className="w-full" src={interview.recording_url} />
-              </CardContent>
-            </Card>
-          )}
-
           {/* Transcript - Prominent chat bubbles */}
           <Card>
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -424,9 +470,9 @@ export default function InterviewReport() {
                       </div>
                     ))}
                   </div>
-                ) : interview.transcript ? (
+                ) : transcript ? (
                   <div className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                    {interview.transcript}
+                    {transcript}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">No transcript available</p>

@@ -107,16 +107,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Call was successful - update interview with call data
+    // Call was successful - only update status (no data storage)
     await serviceClient
       .from("interviews")
       .update({
         status: "completed",
-        transcript: callData.artifact?.transcript ?? null,
-        messages: callData.artifact?.messages ?? null,
-        recording_url: callData.artifact?.recordingUrl ?? null,
-        duration: callData.duration ?? null,
-        cost: callData.cost ?? null,
         ended_at: new Date().toISOString(),
       })
       .eq("id", interviewId);

@@ -128,6 +128,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {interviews.map((i) => (
                 <CommandItem
                   key={i.id}
+                  value={i.id}
                   onSelect={() => {
                     navigate(`/interview/${i.id}/report`);
                     setSearchOpen(false);

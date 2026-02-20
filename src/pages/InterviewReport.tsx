@@ -76,7 +76,7 @@ export default function InterviewReport() {
     }
 
     fetchData().then((data) => {
-      // If no report yet and status is completed, poll
+      // If no report yet, poll for it (analysis runs in background)
       if (data && !data.interview_reports && data.status !== "failed") {
         const pollInterval = setInterval(async () => {
           pollCountRef.current += 1;
@@ -84,14 +84,20 @@ export default function InterviewReport() {
             clearInterval(pollInterval);
             return;
           }
-          const { data: fresh } = await supabase
-            .from("interview_reports")
-            .select("*")
-            .eq("interview_id", id)
-            .maybeSingle();
-          if (fresh) {
-            setReport(fresh);
-            clearInterval(pollInterval);
+          
+          // Re-fetch full interview (name may be updated by AI) + report
+          const { data: freshInterview } = await supabase
+            .from("interviews")
+            .select("*, countries(name, flag_emoji), visa_types(name), interview_reports(*)")
+            .eq("id", id)
+            .single();
+          
+          if (freshInterview) {
+            setInterview(freshInterview);
+            if (freshInterview.interview_reports) {
+              setReport(freshInterview.interview_reports);
+              clearInterval(pollInterval);
+            }
           }
         }, 5000);
         return () => clearInterval(pollInterval);
@@ -252,29 +258,61 @@ export default function InterviewReport() {
             </CardContent>
           </Card>
 
-          {/* Skeleton: Audio */}
-          <Card>
-            <CardContent className="p-4 space-y-2">
-              <div className="h-3 w-20 rounded shimmer-block" />
-              <div className="h-10 w-full rounded-lg shimmer-block" />
-              <p className="text-xs shimmer-text">Loading recording...</p>
-            </CardContent>
-          </Card>
-
-          {/* Skeleton: Transcript */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="h-3 w-24 rounded shimmer-block" />
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className={`flex ${i % 2 === 0 ? "justify-start" : "justify-end"}`}>
-                  <div className={`${i % 2 === 0 ? "w-3/4" : "w-2/3"} h-10 rounded-2xl shimmer-block`} />
+          {/* REAL Audio Player - show immediately if available */}
+          {interview.recording_url && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Play className="h-4 w-4 text-accent" />
+                  <p className="text-sm font-medium">Interview Recording</p>
                 </div>
-              ))}
-              <p className="text-xs shimmer-text text-center">Loading conversation...</p>
-            </CardContent>
-          </Card>
+                <audio controls className="w-full" src={interview.recording_url} />
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Progress info */}
+          {/* REAL Transcript - show immediately if available */}
+          {(chatMessages.length > 0 || interview.transcript) && (
+            <Card>
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-accent" />
+                  Conversation Transcript
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={copyTranscript} className="text-xs">
+                  <Copy className="h-3 w-3 mr-1" /> Copy
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px] pr-4">
+                  {chatMessages.length > 0 ? (
+                    <div className="space-y-3">
+                      {chatMessages.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                            msg.role === "user"
+                              ? "bg-accent/10 text-foreground rounded-br-md"
+                              : "bg-muted text-foreground rounded-bl-md"
+                          }`}>
+                            <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
+                              {msg.role === "user" ? "You" : "Officer"}
+                            </p>
+                            {msg.content}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                      {interview.transcript}
+                    </div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Progress info for AI analysis */}
           <div className="text-center space-y-2">
             <p className="font-semibold shimmer-text transition-all duration-500 min-h-[24px]">
               {ANALYZING_MESSAGES[analyzingMsgIdx]}

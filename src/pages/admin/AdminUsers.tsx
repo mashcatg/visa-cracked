@@ -11,8 +11,17 @@ import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Coins, Plus } from "lucide-react";
 import DataTableControls from "@/components/admin/DataTableControls";
+import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
 
 const PAGE_SIZE = 10;
+
+const csvColumns: CsvColumn[] = [
+  { key: "full_name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "user_id", label: "User ID" },
+  { key: "credits", label: "Credits" },
+  { key: "created_at", label: "Joined", accessor: (r) => new Date(r.created_at).toLocaleDateString() },
+];
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -40,6 +49,7 @@ export default function AdminUsers() {
     const q = search.toLowerCase();
     return profiles.filter(p =>
       (p.full_name || "").toLowerCase().includes(q) ||
+      (p.email || "").toLowerCase().includes(q) ||
       (p.user_id || "").toLowerCase().includes(q)
     );
   }, [profiles, search]);
@@ -117,13 +127,18 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-4">
-      <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search by name or user ID..." />
+      <DataTableControls
+        search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage}
+        placeholder="Search by name, email or user ID..."
+        onExportCSV={() => downloadCSV(filtered, csvColumns, "users")}
+      />
 
       <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>User ID</TableHead>
               <TableHead className="text-center">Credits</TableHead>
               <TableHead>Joined</TableHead>
@@ -134,6 +149,7 @@ export default function AdminUsers() {
             {paginated.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.full_name || "—"}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{p.email || "—"}</TableCell>
                 <TableCell className="text-xs text-muted-foreground font-mono max-w-[120px] truncate">{p.user_id}</TableCell>
                 <TableCell className="text-center">
                   <span className="inline-flex items-center gap-1 text-sm font-semibold">
@@ -151,7 +167,7 @@ export default function AdminUsers() {
             ))}
             {paginated.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users found</TableCell>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">No users found</TableCell>
               </TableRow>
             )}
           </TableBody>

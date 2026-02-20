@@ -6,6 +6,7 @@ import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight, Sparkles } from 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { formatDistanceToNow } from "date-fns";
 
 export default function Dashboard({ onCreateInterview }: { onCreateInterview?: () => void }) {
   const { user } = useAuth();
@@ -194,7 +195,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
                         <span className="text-sm text-muted-foreground capitalize px-2 py-0.5 rounded-full bg-muted">{interview.status}</span>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        {new Date(interview.created_at).toLocaleDateString()}
+                        {formatDistanceToNow(new Date(interview.created_at), { addSuffix: true })}
                       </span>
                     </div>
                   </CardContent>

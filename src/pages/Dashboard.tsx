@@ -7,12 +7,14 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatDistanceToNow } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard({ onCreateInterview }: { onCreateInterview?: () => void }) {
   const { user } = useAuth();
   const [stats, setStats] = useState({ total: 0, avgScore: 0, passRate: 0 });
   const [chartData, setChartData] = useState<any[]>([]);
   const [recentInterviews, setRecentInterviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -23,7 +25,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .then(({ data }) => {
-        if (!data) return;
+        if (!data) { setLoading(false); return; }
 
         setRecentInterviews(data.slice(0, 6));
 
@@ -50,14 +52,9 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
             score: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
           }))
         );
+        setLoading(false);
       });
   }, [user]);
-
-  const statCards = [
-    { title: "Total Mock Tests", value: stats.total, icon: FileText, description: "All time" },
-    { title: "Average Score", value: stats.avgScore, icon: Target, description: "Out of 100" },
-    { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, description: "Score ≥ 60" },
-  ];
 
   function scoreColor(score: number) {
     if (score >= 80) return "text-emerald-500";
@@ -70,6 +67,64 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
     if (score >= 60) return "bg-amber-500/10";
     return "bg-red-500/10";
   }
+
+  if (loading) {
+    return (
+      <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
+        {/* Header skeleton */}
+        <div>
+          <Skeleton className="h-9 w-48 shimmer-block" />
+          <Skeleton className="h-4 w-72 mt-2 shimmer-block" />
+        </div>
+
+        {/* CTA skeleton */}
+        <Skeleton className="h-28 w-full rounded-xl shimmer-block" />
+
+        {/* Stat cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="border-border/50">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <Skeleton className="h-4 w-24 shimmer-block" />
+                <Skeleton className="h-9 w-9 rounded-lg shimmer-block" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 shimmer-block" />
+                <Skeleton className="h-3 w-20 mt-2 shimmer-block" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Recent tests skeleton */}
+        <div>
+          <Skeleton className="h-6 w-44 mb-4 shimmer-block" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="border-border/50">
+                <CardHeader className="pb-3">
+                  <Skeleton className="h-5 w-32 shimmer-block" />
+                  <Skeleton className="h-4 w-24 mt-1 shimmer-block" />
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-8 w-12 shimmer-block" />
+                    <Skeleton className="h-3 w-20 shimmer-block" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const statCards = [
+    { title: "Total Mock Tests", value: stats.total, icon: FileText, description: "All time" },
+    { title: "Average Score", value: stats.avgScore, icon: Target, description: "Out of 100" },
+    { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, description: "Score ≥ 60" },
+  ];
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">

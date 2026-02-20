@@ -269,7 +269,7 @@ export default function InterviewRoom() {
                 <Loader2 className="h-12 w-12 animate-spin mx-auto text-accent relative z-10" />
               </div>
               <div>
-                <p className="text-white font-semibold text-lg transition-all duration-500 min-h-[28px]">
+                <p className="text-white font-semibold text-lg transition-all duration-500 min-h-[28px] shimmer-text-light">
                   {CONNECTING_MESSAGES[connectingMsgIdx]}
                 </p>
                 <p className="text-xs text-white/40 mt-2">Please allow camera & microphone access</p>

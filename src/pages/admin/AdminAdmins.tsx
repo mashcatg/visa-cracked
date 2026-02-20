@@ -14,6 +14,7 @@ const PAGE_SIZE = 10;
 
 const csvColumns: CsvColumn[] = [
   { key: "name", label: "Name", accessor: (r) => (r.profiles as any)?.full_name || "" },
+  { key: "email", label: "Email", accessor: (r) => (r.profiles as any)?.email || "" },
   { key: "user_id", label: "User ID" },
 ];
 
@@ -28,7 +29,7 @@ export default function AdminAdmins() {
   async function fetchAdmins() {
     const { data } = await supabase
       .from("user_roles")
-      .select("*, profiles(full_name, user_id)")
+      .select("*, profiles!user_roles_user_id_profiles_fkey(full_name, email, user_id)")
       .eq("role", "admin");
     if (data) setAdmins(data);
   }
@@ -40,6 +41,7 @@ export default function AdminAdmins() {
     const q = search.toLowerCase();
     return admins.filter(a =>
       ((a.profiles as any)?.full_name || "").toLowerCase().includes(q) ||
+      ((a.profiles as any)?.email || "").toLowerCase().includes(q) ||
       (a.user_id || "").toLowerCase().includes(q)
     );
   }, [admins, search]);
@@ -116,6 +118,7 @@ export default function AdminAdmins() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>User ID</TableHead>
               <TableHead className="w-20">Actions</TableHead>
             </TableRow>
@@ -124,6 +127,7 @@ export default function AdminAdmins() {
             {paginated.map((a) => (
               <TableRow key={a.id}>
                 <TableCell className="font-medium">{(a.profiles as any)?.full_name || "—"}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">{(a.profiles as any)?.email || "—"}</TableCell>
                 <TableCell className="text-xs text-muted-foreground font-mono">{a.user_id}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => removeAdmin(a.id)}>
@@ -134,7 +138,7 @@ export default function AdminAdmins() {
             ))}
             {paginated.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">No admins found</TableCell>
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">No admins found</TableCell>
               </TableRow>
             )}
           </TableBody>

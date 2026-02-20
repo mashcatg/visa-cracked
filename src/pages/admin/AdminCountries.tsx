@@ -9,8 +9,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
 import DataTableControls from "@/components/admin/DataTableControls";
+import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
 
 const PAGE_SIZE = 10;
+
+const csvColumns: CsvColumn[] = [
+  { key: "flag_emoji", label: "Flag" },
+  { key: "name", label: "Name" },
+  { key: "code", label: "Code" },
+];
 
 export default function AdminCountries() {
   const [countries, setCountries] = useState<Tables<"countries">[]>([]);
@@ -81,7 +88,11 @@ export default function AdminCountries() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search countries..." />
+        <DataTableControls
+          search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage}
+          placeholder="Search countries..."
+          onExportCSV={() => downloadCSV(filtered, csvColumns, "countries")}
+        />
         <Button onClick={openNew} className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
           <Plus className="h-4 w-4 mr-2" /> Add Country
         </Button>

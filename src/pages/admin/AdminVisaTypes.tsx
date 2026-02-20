@@ -12,8 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import type { Tables } from "@/integrations/supabase/types";
 import DataTableControls from "@/components/admin/DataTableControls";
+import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
 
 const PAGE_SIZE = 10;
+
+const csvColumns: CsvColumn[] = [
+  { key: "country", label: "Country", accessor: (r) => (r.countries as any)?.name || "" },
+  { key: "name", label: "Name" },
+  { key: "description", label: "Description" },
+  { key: "vapi", label: "Vapi Configured", accessor: (r) => r.vapi_assistant_id ? "Yes" : "No" },
+];
 
 export default function AdminVisaTypes() {
   const [visaTypes, setVisaTypes] = useState<any[]>([]);
@@ -79,24 +87,16 @@ export default function AdminVisaTypes() {
 
   async function handleSave() {
     if (!name || !countryId) { toast.error("Name and country are required"); return; }
-
     const payload = {
-      name,
-      description: description || null,
-      country_id: countryId,
-      vapi_assistant_id: vapiAssistantId || null,
-      vapi_public_key: vapiPublicKey || null,
-      vapi_private_key: vapiPrivateKey || null,
+      name, description: description || null, country_id: countryId,
+      vapi_assistant_id: vapiAssistantId || null, vapi_public_key: vapiPublicKey || null, vapi_private_key: vapiPrivateKey || null,
     };
-
     if (editing) {
       const { error } = await supabase.from("visa_types").update(payload).eq("id", editing.id);
-      if (error) toast.error(error.message);
-      else toast.success("Updated");
+      if (error) toast.error(error.message); else toast.success("Updated");
     } else {
       const { error } = await supabase.from("visa_types").insert(payload);
-      if (error) toast.error(error.message);
-      else toast.success("Added");
+      if (error) toast.error(error.message); else toast.success("Added");
     }
     setDialogOpen(false);
     fetchData();
@@ -111,7 +111,11 @@ export default function AdminVisaTypes() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search visa types..." />
+        <DataTableControls
+          search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage}
+          placeholder="Search visa types..."
+          onExportCSV={() => downloadCSV(filtered, csvColumns, "visa-types")}
+        />
         <Button onClick={openNew} className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
           <Plus className="h-4 w-4 mr-2" /> Add Visa Type
         </Button>
@@ -136,9 +140,7 @@ export default function AdminVisaTypes() {
                 <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{vt.description || "—"}</TableCell>
                 <TableCell>
                   {vt.vapi_assistant_id ? (
-                    <Badge variant="secondary" className="gap-1">
-                      <Key className="h-3 w-3" /> Configured
-                    </Badge>
+                    <Badge variant="secondary" className="gap-1"><Key className="h-3 w-3" /> Configured</Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">Not set</span>
                   )}
@@ -175,29 +177,14 @@ export default function AdminVisaTypes() {
             </div>
             <div className="space-y-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="F1 Student Visa" /></div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" /></div>
-            
-            {/* Vapi Configuration */}
             <div className="border-t pt-4 mt-4">
-              <p className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Key className="h-4 w-4 text-accent" />
-                Vapi Configuration
-              </p>
+              <p className="text-sm font-semibold mb-3 flex items-center gap-2"><Key className="h-4 w-4 text-accent" />Vapi Configuration</p>
               <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label>Assistant ID</Label>
-                  <Input value={vapiAssistantId} onChange={(e) => setVapiAssistantId(e.target.value)} placeholder="asst_..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Public Key</Label>
-                  <Input value={vapiPublicKey} onChange={(e) => setVapiPublicKey(e.target.value)} placeholder="pk_..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Private Key</Label>
-                  <Input type="password" value={vapiPrivateKey} onChange={(e) => setVapiPrivateKey(e.target.value)} placeholder="sk_..." />
-                </div>
+                <div className="space-y-2"><Label>Assistant ID</Label><Input value={vapiAssistantId} onChange={(e) => setVapiAssistantId(e.target.value)} placeholder="asst_..." /></div>
+                <div className="space-y-2"><Label>Public Key</Label><Input value={vapiPublicKey} onChange={(e) => setVapiPublicKey(e.target.value)} placeholder="pk_..." /></div>
+                <div className="space-y-2"><Label>Private Key</Label><Input type="password" value={vapiPrivateKey} onChange={(e) => setVapiPrivateKey(e.target.value)} placeholder="sk_..." /></div>
               </div>
             </div>
-
             <Button onClick={handleSave} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">Save</Button>
           </div>
         </DialogContent>

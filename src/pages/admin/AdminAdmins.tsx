@@ -8,8 +8,14 @@ import { Trash2, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import DataTableControls from "@/components/admin/DataTableControls";
+import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
 
 const PAGE_SIZE = 10;
+
+const csvColumns: CsvColumn[] = [
+  { key: "name", label: "Name", accessor: (r) => (r.profiles as any)?.full_name || "" },
+  { key: "user_id", label: "User ID" },
+];
 
 export default function AdminAdmins() {
   const [admins, setAdmins] = useState<any[]>([]);
@@ -64,7 +70,11 @@ export default function AdminAdmins() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search admins..." />
+        <DataTableControls
+          search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage}
+          placeholder="Search admins..."
+          onExportCSV={() => downloadCSV(filtered, csvColumns, "admins")}
+        />
         <Button onClick={() => setDialogOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
           <Plus className="h-4 w-4 mr-2" /> Add Admin
         </Button>

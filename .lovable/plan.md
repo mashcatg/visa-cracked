@@ -1,113 +1,74 @@
 
 
-# Fix Multiple Issues: Admin Toast, Audio Skeleton, Cost Removal, and More
+# Fix Admin Display + Add Skeleton Loading Everywhere
 
-## Changes Summary
+## 1. Admin Table Not Showing Rows
 
-### 1. Fix "Add Admin" - Actually Add Admin by Email
-**File**: `src/pages/admin/AdminAdmins.tsx`
+**Root Cause**: The `fetchAdmins` query does `.select("*, profiles(full_name, user_id)")` but `user_roles.user_id` has a foreign key to `auth.users.id`, NOT to `profiles.user_id`. PostgREST cannot resolve this implicit join, so it returns no data or errors silently.
 
-The current `addAdmin` function just shows a toast and does nothing. Replace it with real logic:
-- Query `profiles` table by email to find the user
-- If found, insert a row into `user_roles` with role `admin`
-- If not found, show an error toast saying "User not found. They must sign up first."
-- Refresh the admin list after success
+**Fix**:
+- Add a database migration to create a foreign key: `ALTER TABLE public.user_roles ADD CONSTRAINT user_roles_user_id_profiles_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;`
+- Update `AdminAdmins.tsx` fetch query to use the explicit hint: `profiles!user_roles_user_id_profiles_fkey(full_name, email, user_id)`
+- Also show email column in the admins table
 
-### 2. Replace "Loading recording..." with Skeleton + Shimmer
-**File**: `src/pages/InterviewReport.tsx`
+---
 
-Replace lines 310-319 (the `vapiLoading` loading state) with a shimmer skeleton that matches the custom audio player shape -- a card with shimmer blocks for the controls area.
+## 2. Dashboard Loading Skeleton
 
-### 3. Remove All Cost/DollarSign References
-**Files**:
-- `src/pages/InterviewReport.tsx`: Remove `DollarSign` import, remove `cost` variable, remove the cost display block (lines 292-296), remove `cost` from `VapiData` interface
-- `supabase/functions/fetch-vapi-data/index.ts`: Remove `cost` from the returned data
-- `src/pages/PublicReportPage.tsx`: No cost references found -- no changes needed
+**Problem**: `Dashboard.tsx` has no loading state -- it renders empty cards while data loads.
 
-### 4. Theme is Already Set to System Default
-`App.tsx` already has `defaultTheme="system" enableSystem={true}` -- no change needed.
+**Fix**: Add a `loading` boolean state, set it to true initially, false after data fetch completes. When `loading` is true, render shimmer skeleton blocks matching the dashboard layout (stat cards, CTA card, recent tests grid).
 
-### 5. Transcript Bar and Chat Bubbles Already Implemented
-The interview room transcript bar and report chat bubbles are already implemented from the previous round -- no changes needed.
+---
 
-### 6. Custom Audio Player Already Implemented
-Already in place at `src/components/audio/CustomAudioPlayer.tsx` -- no changes needed.
+## 3. Interview Room Connecting Skeleton
+
+**Problem**: The interview room connecting overlay uses a spinner but no skeleton/shimmer text.
+
+**Fix**: Apply the existing `shimmer-text-light` CSS class to the connecting messages text in `InterviewRoom.tsx` so the text has a shimmer effect while loading.
+
+---
+
+## 4. Report Page Card Loading States (already done)
+
+The report page already has shimmer skeletons for:
+- Initial page load (lines 174-213)
+- Audio player loading (lines 304-319)
+- Summary loading (lines 391-398)
+- Score loading (lines 470-477, 495-507)
+- Detailed feedback loading (lines 429-441)
+
+No additional changes needed here.
 
 ---
 
 ## Technical Details
 
-### Fix Add Admin Logic
-```typescript
-async function addAdmin() {
-  if (!email) return;
-  setLoading(true);
-  // Look up user by email in profiles
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("user_id")
-    .eq("email", email.trim().toLowerCase())
-    .single();
-  if (!profile) {
-    toast.error("User not found. They must sign up first.");
-    setLoading(false);
-    return;
-  }
-  // Check if already admin
-  const { data: existing } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", profile.user_id)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (existing) {
-    toast.info("User is already an admin.");
-    setLoading(false);
-    setDialogOpen(false);
-    return;
-  }
-  // Insert admin role
-  const { error } = await supabase
-    .from("user_roles")
-    .insert({ user_id: profile.user_id, role: "admin" });
-  if (error) {
-    toast.error("Failed to add admin");
-  } else {
-    toast.success("Admin added!");
-    setEmail("");
-    fetchAdmins();
-  }
-  setLoading(false);
-  setDialogOpen(false);
-}
-```
-
-### Audio Loading Skeleton
-Replace the Loader2 spinner with shimmer blocks matching the audio player layout:
-```tsx
-{vapiLoading && !recordingUrl && (
-  <Card>
-    <CardContent className="p-4">
-      <div className="flex items-center gap-3">
-        <div className="h-4 w-4 rounded shimmer-block" />
-        <div className="h-10 w-10 rounded-full shimmer-block shrink-0" />
-        <div className="h-4 w-4 rounded shimmer-block" />
-        <div className="h-3 w-10 rounded shimmer-block" />
-        <div className="h-2 flex-1 rounded shimmer-block" />
-        <div className="h-3 w-10 rounded shimmer-block" />
-        <div className="h-4 w-4 rounded shimmer-block" />
-        <div className="h-2 w-16 rounded shimmer-block" />
-      </div>
-    </CardContent>
-  </Card>
-)}
+### Database Migration
+```sql
+ALTER TABLE public.user_roles 
+ADD CONSTRAINT user_roles_user_id_profiles_fkey 
+FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
 ```
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/pages/admin/AdminAdmins.tsx` | Fix addAdmin to actually look up user and assign role |
-| `src/pages/InterviewReport.tsx` | Replace audio loading with skeleton; remove cost/DollarSign |
-| `supabase/functions/fetch-vapi-data/index.ts` | Remove cost from returned data |
+| Migration SQL | Add FK user_roles -> profiles |
+| `src/pages/admin/AdminAdmins.tsx` | Fix join hint, add email column |
+| `src/pages/Dashboard.tsx` | Add loading state with shimmer skeleton |
+| `src/pages/InterviewRoom.tsx` | Add shimmer-text-light to connecting messages |
+
+### Dashboard Skeleton Layout
+When loading, show:
+- Header shimmer (title + subtitle)
+- CTA card shimmer
+- 3 stat card shimmer blocks (matching the grid)
+- Recent mock tests section: 3 card shimmer blocks in a grid
+
+### Admin Admins Table Fix
+- Update query: `.select("*, profiles!user_roles_user_id_profiles_fkey(full_name, email, user_id)")`
+- Add Email column to table header and rows
+- Add email to CSV export columns
 

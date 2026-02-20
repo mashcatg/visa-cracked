@@ -165,7 +165,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recentInterviews.map((interview) => (
               <Link key={interview.id} to={`/interview/${interview.id}/report`}>
-                <Card className="hover:border-accent/40 hover:shadow-md transition-all cursor-pointer h-full group">
+                <Card className="hover:border-accent/40 transition-all cursor-pointer h-full group">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>

@@ -1,113 +1,130 @@
 
 
-# Plan: Fetch Vapi Data Live (No DB Storage) + Perfect Report Page
+# Plan: Parallel AI Analysis + Interview Room & Report Page Perfection
 
-## Core Architecture Change
+## Problem Summary
 
-Currently, `get-interview-results` fetches Vapi data and stores transcript, messages, recording_url, duration, and cost in the `interviews` table. The user wants to stop storing these and always fetch them live from the Vapi API.
+1. AI analysis takes 10+ minutes or never completes -- single Gemini call is too slow/unreliable
+2. Report page shows "Fetching your interview transcript..." text and "This usually takes 1-2 minutes" -- should be removed
+3. Report page needs proper shimmer skeleton placeholder cards per section
+4. Interview room "Connecting to Interviewer..." should use rotating messages
+5. User subtitles look weak/shrinking in the interview room
+6. User camera needs more space (Google Meet style)
+7. Transcript should show user on right, officer on left (chat style)
+8. No timeout/failure handling -- if AI never responds, user is stuck forever
+9. Need a "Regenerate Report" button when analysis fails
+10. Need to tell Gemini if the call was auto-cut due to time limit (bad impression)
+
+## Architecture Change: Parallel AI Workers
+
+Instead of one big Gemini call that generates everything, split into 3-4 parallel calls that each produce a subset of the report. This dramatically reduces wait time and lets results appear progressively.
 
 ```text
-Current Flow:
-  Call ends -> get-interview-results -> saves audio/transcript/messages to DB -> report reads from DB
+Current: 1 big Gemini call -> all scores + feedback + summary (slow, fragile)
 
-New Flow:
-  Call ends -> get-interview-results -> only marks status + deducts credits (no data storage)
-  Report page -> calls new "fetch-vapi-data" edge function -> gets audio/transcript/messages/duration/cost live from Vapi API
+New: 4 parallel Gemini calls, each filling different DB columns:
+  Worker 1: Summary + mock_name + overall_score (fast, ~10s)
+  Worker 2: Category scores (7 scores) (~10s)
+  Worker 3: Grammar mistakes + red flags + improvement plan (~15s)
+  Worker 4: Detailed per-question feedback (~20s)
 ```
+
+The report page polls every 5 seconds. As each worker finishes, its section fills in and the shimmer disappears for that section only.
 
 ---
 
-## Changes
+## File Changes
 
-### 1. New Edge Function: `fetch-vapi-data`
+### 1. Edge Function: `analyze-interview/index.ts` -- Parallel Workers
 
-**File:** `supabase/functions/fetch-vapi-data/index.ts`
+Replace the single AI call with 4 parallel `Promise.all` calls to Gemini, each with a focused prompt. Each worker writes its results to `interview_reports` independently using upsert.
 
-A simple authenticated edge function that:
-- Takes `interviewId` in the request body
-- Looks up the `vapi_call_id` from the `interviews` table
-- Calls `GET https://api.vapi.ai/call/{callId}` with `VAPI_PRIVATE_KEY`
-- Returns the relevant fields to the frontend:
-  - `recordingUrl` (from `callData.artifact.recordingUrl`)
-  - `transcript` (from `callData.artifact.transcript`)
-  - `messages` (from `callData.artifact.messages`)
-  - `duration` (from `callData.duration`)
-  - `cost` (from `callData.cost`)
-  - `endedReason` (from `callData.endedReason`)
-- Includes retry logic (if recordingUrl is missing, wait 5s and retry once)
+Flow:
+- First, upsert a blank `interview_reports` row so the report page knows analysis has started
+- Fire 4 parallel AI calls
+- Each call, on completion, updates the specific columns it owns
+- If any call fails, the other results still land
+- Include `endedReason` context: if the call was auto-cut (e.g., `endedReason === "max-duration-reached"`), tell Gemini this is a bad impression
 
-### 2. Simplify `get-interview-results`
+Worker assignments:
+- **Worker 1 (Quick Summary)**: `mock_name`, `overall_score`, `summary`
+- **Worker 2 (Scores)**: `english_score`, `confidence_score`, `financial_clarity_score`, `immigration_intent_score`, `pronunciation_score`, `vocabulary_score`, `response_relevance_score`
+- **Worker 3 (Issues)**: `grammar_mistakes`, `red_flags`, `improvement_plan`
+- **Worker 4 (Feedback)**: `detailed_feedback`
 
-**File:** `supabase/functions/get-interview-results/index.ts`
+### 2. Report Page: `InterviewReport.tsx` -- Progressive Loading
 
-Remove the lines that store transcript, messages, recording_url, duration, cost in the DB. Only update:
-- `status` ("completed" or "failed")
-- `ended_at`
+Major changes:
+- Remove the "Fetching your interview transcript..." rotating messages and "This usually takes 1-2 minutes" text
+- Each section (summary, scores, grammar, feedback, etc.) gets its own shimmer skeleton placeholder card
+- As polling detects data arriving for a section, that section's shimmer is replaced with real data
+- Audio player, transcript/chat, duration, cost show immediately from Vapi data (no shimmer needed for these)
+- After 2 minutes of polling with no report data at all, show a failure message with a "Regenerate Report" button
+- "Regenerate Report" button calls `analyze-interview` again
+- Transcript chat: user messages aligned right, officer messages aligned left (already implemented, keeping it)
 
-Keep the credit deduction logic and failure detection logic unchanged.
+### 3. Interview Room: `InterviewRoom.tsx` -- UI Improvements
 
-### 3. Report Page -- Fetch Vapi Data Live
+- **Connecting screen**: Replace static "Connecting to interviewer..." with rotating messages:
+  - "Preparing your interview environment..."
+  - "Setting up secure connection..."
+  - "Loading interview questions..."
+  - "Almost ready..."
+- **User camera bigger**: Make the user video the main view (like Google Meet where the active speaker is large). The officer avatar becomes a smaller element overlaid or placed in a sidebar. Layout: user video fills the main area, officer avatar is a floating card in the corner
+- **Subtitles**: Make user subtitles stronger (same text size and opacity as officer, just different color). Remove the shrinking/weak styling. Both use white text, user gets accent label, officer gets white/50 label
+- **Processing screen**: Already navigates to report page immediately -- keep this behavior. Remove the processing screen entirely since the user goes straight to the report page
 
-**File:** `src/pages/InterviewReport.tsx`
+### 4. CSS: `src/index.css` -- No major changes needed
 
-On page load:
-1. Fetch interview record from DB (for status, country, visa type, vapi_call_id existence)
-2. If status is "completed" and vapi_call_id exists, call `fetch-vapi-data` edge function to get audio, transcript, messages, duration, cost
-3. Show audio player, chat transcript, duration, and cost immediately from the Vapi response
-4. Continue polling for the AI-generated report (scores, feedback, etc.) as before
-
-Add a metadata bar showing duration and cost (e.g., "Duration: 4m 32s | Cost: $0.18").
-
-### 4. Report Page -- UI Perfection
-
-Ensure all Vapi data is prominently displayed:
-- **Audio player**: Full-width player at the top, always visible
-- **Duration + Cost**: Shown in the header subtitle area
-- **Transcript**: Chat-bubble conversation (messages array), with fallback to plain transcript text
-- **Scores + Feedback**: Shimmer skeletons while polling, then rendered when ready
+Existing shimmer classes are sufficient.
 
 ---
 
 ## Technical Details
 
-### fetch-vapi-data Edge Function
+### analyze-interview Parallel Workers
+
+Each worker calls the same Lovable AI Gateway endpoint but with a smaller, focused prompt:
 
 ```text
-POST /fetch-vapi-data
-Body: { interviewId: "uuid" }
-Auth: Bearer token (user must own the interview)
-
-Response: {
-  recordingUrl: string | null,
-  stereoRecordingUrl: string | null,
-  transcript: string | null,
-  messages: Array<{ role: string, content: string, timestamp?: number }>,
-  duration: number | null,
-  cost: number | null,
-  endedReason: string | null
-}
+Worker 1 prompt: "Return JSON with mock_name, overall_score (0-100), summary (3-4 sentences)"
+Worker 2 prompt: "Return JSON with english_score, confidence_score, ... (7 scores, each 0-100)"
+Worker 3 prompt: "Return JSON with grammar_mistakes array, red_flags array, improvement_plan array"
+Worker 4 prompt: "Return JSON with detailed_feedback array (per-question analysis)"
 ```
 
-### get-interview-results Changes
+Each worker does its own `serviceClient.from("interview_reports").update(...)` on completion.
 
-Remove from the update call:
-- `transcript`
-- `messages`
-- `recording_url`
-- `duration`
-- `cost`
+The initial upsert creates the row with null values so the report page can detect "analysis started" vs "no analysis yet."
 
-Keep:
-- `status: "completed"` or `"failed"`
-- `ended_at`
+### Report Page Progressive Detection
 
-### InterviewReport.tsx State
+The polling checks which fields are non-null:
+- `summary !== null` -> show summary section
+- `english_score !== null` -> show all category scores
+- `grammar_mistakes` is not empty array -> show grammar section
+- `detailed_feedback` is not empty array -> show feedback section
 
-Add new state:
-- `vapiData` -- holds the live Vapi response (audio, transcript, messages, duration, cost)
-- `vapiLoading` -- loading state for the Vapi fetch
+Each section independently transitions from shimmer to content.
 
-On mount, after fetching interview from DB, immediately call `fetch-vapi-data` and store result. Render audio/transcript from this state instead of from `interview.recording_url` / `interview.messages`.
+### Interview Room Layout
+
+```text
+Current layout:
+  [Officer avatar - full screen]
+  [User PIP - small corner]
+
+New layout (Google Meet style):
+  [User video - fills ~75% of screen]
+  [Officer avatar - floating card, top-left corner with speaking indicator]
+  [Subtitles - bottom center overlay]
+```
+
+### Call End Context for Gemini
+
+The `analyze-interview` function already fetches the interview. Add: fetch `endedReason` from Vapi data (call `fetch-vapi-data` internally or pass it). If `endedReason` contains "max-duration" or similar, append to the prompt:
+
+"Note: This interview was automatically terminated because the maximum time limit was reached. The applicant did not finish the interview naturally. This should be considered a negative factor in the evaluation."
 
 ---
 
@@ -115,9 +132,9 @@ On mount, after fetching interview from DB, immediately call `fetch-vapi-data` a
 
 | File | Change |
 |------|--------|
-| `supabase/functions/fetch-vapi-data/index.ts` | New -- fetches live data from Vapi API |
-| `supabase/functions/get-interview-results/index.ts` | Remove transcript/messages/recording_url/duration/cost storage |
-| `src/pages/InterviewReport.tsx` | Call fetch-vapi-data, show audio/transcript/duration/cost from live Vapi data |
+| `supabase/functions/analyze-interview/index.ts` | Split into 4 parallel AI workers, each updating its own DB columns. Add call-end context. |
+| `src/pages/InterviewReport.tsx` | Progressive per-section loading, remove "Fetching transcript" text, add 2-min timeout with regenerate button, shimmer per section |
+| `src/pages/InterviewRoom.tsx` | User video as main view, officer as floating card, rotating connecting messages, stronger subtitles, remove processing screen |
 
-No database migrations needed.
+No database migrations needed -- existing `interview_reports` columns support partial updates.
 

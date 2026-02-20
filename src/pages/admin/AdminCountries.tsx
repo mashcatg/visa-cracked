@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,9 @@ import { Trash2, Plus, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
+import DataTableControls from "@/components/admin/DataTableControls";
+
+const PAGE_SIZE = 10;
 
 export default function AdminCountries() {
   const [countries, setCountries] = useState<Tables<"countries">[]>([]);
@@ -16,6 +19,8 @@ export default function AdminCountries() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [flagEmoji, setFlagEmoji] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   async function fetchCountries() {
     const { data } = await supabase.from("countries").select("*").order("name");
@@ -23,6 +28,17 @@ export default function AdminCountries() {
   }
 
   useEffect(() => { fetchCountries(); }, []);
+
+  const filtered = useMemo(() => {
+    if (!search) return countries;
+    const q = search.toLowerCase();
+    return countries.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q));
+  }, [countries, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search]);
 
   function openEdit(country: Tables<"countries">) {
     setEditing(country);
@@ -63,9 +79,10 @@ export default function AdminCountries() {
   }
 
   return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <Button onClick={openNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search countries..." />
+        <Button onClick={openNew} className="bg-accent text-accent-foreground hover:bg-accent/90 shrink-0">
           <Plus className="h-4 w-4 mr-2" /> Add Country
         </Button>
       </div>
@@ -81,7 +98,7 @@ export default function AdminCountries() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {countries.map((c) => (
+            {paginated.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="text-xl">{c.flag_emoji}</TableCell>
                 <TableCell className="font-medium">{c.name}</TableCell>
@@ -94,7 +111,7 @@ export default function AdminCountries() {
                 </TableCell>
               </TableRow>
             ))}
-            {countries.length === 0 && (
+            {paginated.length === 0 && (
               <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No countries</TableCell></TableRow>
             )}
           </TableBody>

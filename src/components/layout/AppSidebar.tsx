@@ -72,7 +72,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
     )}>
       {/* Logo + Collapse toggle */}
       <div className="flex items-center gap-2 px-3 py-5 border-b border-sidebar-border">
-        {!collapsed && <img src={sidebarLogo} alt="VisaCracker" className="h-8 ml-3" />}
+        {!collapsed && <img src={sidebarLogo} alt="Visa Cracked" className="h-8 ml-3" />}
         <button
           onClick={onToggleCollapse}
           className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50"

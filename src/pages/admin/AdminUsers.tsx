@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Coins, Plus } from "lucide-react";
+import DataTableControls from "@/components/admin/DataTableControls";
+
+const PAGE_SIZE = 10;
 
 export default function AdminUsers() {
   const { user } = useAuth();
@@ -21,20 +24,30 @@ export default function AdminUsers() {
   const [grantReason, setGrantReason] = useState("");
   const [grantExpiry, setGrantExpiry] = useState("");
   const [granting, setGranting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    loadProfiles();
-  }, []);
+  useEffect(() => { loadProfiles(); }, []);
 
   function loadProfiles() {
-    supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data) setProfiles(data);
-      });
+    supabase.from("profiles").select("*").order("created_at", { ascending: false }).then(({ data }) => {
+      if (data) setProfiles(data);
+    });
   }
+
+  const filtered = useMemo(() => {
+    if (!search) return profiles;
+    const q = search.toLowerCase();
+    return profiles.filter(p =>
+      (p.full_name || "").toLowerCase().includes(q) ||
+      (p.user_id || "").toLowerCase().includes(q)
+    );
+  }, [profiles, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [search]);
 
   function openGrant(profile: any) {
     setSelectedUser(profile);
@@ -47,15 +60,12 @@ export default function AdminUsers() {
   async function handleGrant() {
     if (!selectedUser || !user || !grantCredits) return;
     setGranting(true);
-
     const credits = parseInt(grantCredits);
     if (isNaN(credits) || credits <= 0) {
       toast.error("Invalid credit amount");
       setGranting(false);
       return;
     }
-
-    // Insert credit grant record
     const { error: grantError } = await supabase.from("credit_grants").insert({
       user_id: selectedUser.user_id,
       credits,
@@ -63,19 +73,15 @@ export default function AdminUsers() {
       granted_by: user.id,
       expires_at: grantExpiry ? new Date(grantExpiry).toISOString() : null,
     });
-
     if (grantError) {
       toast.error("Failed to record credit grant");
       setGranting(false);
       return;
     }
-
-    // Add credits to user profile
     const { error: updateError } = await supabase
       .from("profiles")
       .update({ credits: (selectedUser.credits || 0) + credits })
       .eq("user_id", selectedUser.user_id);
-
     if (updateError) {
       toast.error("Failed to update credits");
     } else {
@@ -111,6 +117,8 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-4">
+      <DataTableControls search={search} onSearchChange={setSearch} page={page} totalPages={totalPages} onPageChange={setPage} placeholder="Search by name or user ID..." />
+
       <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
@@ -123,7 +131,7 @@ export default function AdminUsers() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {profiles.map((p) => (
+            {paginated.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">{p.full_name || "—"}</TableCell>
                 <TableCell className="text-xs text-muted-foreground font-mono max-w-[120px] truncate">{p.user_id}</TableCell>
@@ -141,7 +149,7 @@ export default function AdminUsers() {
                 </TableCell>
               </TableRow>
             ))}
-            {profiles.length === 0 && (
+            {paginated.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No users found</TableCell>
               </TableRow>
@@ -150,7 +158,6 @@ export default function AdminUsers() {
         </Table>
       </div>
 
-      {/* Grant Credits Modal/Drawer */}
       {isMobile ? (
         <Drawer open={grantOpen} onOpenChange={setGrantOpen}>
           <DrawerContent>

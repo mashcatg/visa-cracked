@@ -39,7 +39,7 @@ export default function Login() {
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto">
-            <img src={logo} alt="VisaCracker" className="h-12 mx-auto" />
+            <img src={logo} alt="Visa Cracked" className="h-12 mx-auto" />
           </div>
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>Sign in to continue your mock test prep</CardDescription>

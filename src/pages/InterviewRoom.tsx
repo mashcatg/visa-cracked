@@ -146,7 +146,10 @@ export default function InterviewRoom() {
           setConnectionQuality("poor");
         });
 
-        vapi.start(data.assistantId);
+        const call = await vapi.start(data.assistantId);
+        if (call?.id) {
+          await supabase.from("interviews").update({ vapi_call_id: call.id }).eq("id", id);
+        }
       } catch (err: any) {
         console.error("Failed to start mock test:", err);
         toast.error("Failed to start mock test. Returning to dashboard.");
@@ -280,7 +283,7 @@ export default function InterviewRoom() {
         </div>
 
         {/* Self-view PIP - top right corner */}
-        <div className={`absolute ${isMobile ? "top-3 right-3 w-24 h-32" : "top-4 right-4 w-44 h-32"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors z-10 bg-[#003B36]`}>
+        <div className={`absolute ${isMobile ? "top-3 right-3 w-32 h-44" : "top-4 right-4 w-56 h-40"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors z-10 bg-[#003B36]`}>
           <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
           {!camOn && (
             <div className="absolute inset-0 bg-[#003B36] flex items-center justify-center">
@@ -291,18 +294,25 @@ export default function InterviewRoom() {
           )}
         </div>
 
-        {/* Subtitles overlay - bottom of main area */}
-        <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${isMobile ? "w-[90%]" : "max-w-2xl w-full"} space-y-1.5 z-10`}>
-          {assistantSubtitle && (
-            <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-2.5 text-center">
-              <p className="text-white text-sm leading-relaxed">{assistantSubtitle}</p>
-            </div>
-          )}
-          {userSubtitle && (
-            <div className="bg-accent/20 backdrop-blur-md rounded-lg px-4 py-2 text-center">
-              <p className="text-white/90 text-xs">{userSubtitle}</p>
-            </div>
-          )}
+        {/* Unified subtitles overlay - bottom of main area */}
+        <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${isMobile ? "w-[90%]" : "max-w-2xl w-full"} z-10`}>
+          <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-3 space-y-1.5">
+            {assistantSubtitle && (
+              <p className="text-white text-sm leading-relaxed shimmer-text-light">
+                <span className="text-white/50 text-xs font-medium mr-1.5">Officer:</span>
+                {assistantSubtitle}
+              </p>
+            )}
+            {userSubtitle && (
+              <p className="text-white/80 text-sm leading-relaxed">
+                <span className="text-accent/70 text-xs font-medium mr-1.5">You:</span>
+                {userSubtitle}
+              </p>
+            )}
+            {!assistantSubtitle && !userSubtitle && isConnected && (
+              <p className="text-white/30 text-xs text-center shimmer-text-light">Listening...</p>
+            )}
+          </div>
         </div>
       </div>
 

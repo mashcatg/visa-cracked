@@ -219,25 +219,74 @@ export default function InterviewReport() {
       </div>
 
       {!report ? (
-        <Card className="p-8 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 -m-4 rounded-full bg-accent/10 blur-2xl animate-pulse" />
-              <Loader2 className="h-10 w-10 animate-spin text-accent relative z-10" />
+        <div className="space-y-6">
+          {/* Skeleton: Overall Score + Categories */}
+          <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+            <Card className="bg-muted/30">
+              <CardContent className="p-6 flex flex-col items-center justify-center h-full">
+                <div className="w-28 h-28 rounded-full shimmer-block mb-3" />
+                <p className="text-sm shimmer-text mt-2">Calculating overall score...</p>
+              </CardContent>
+            </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {["English", "Confidence", "Financial", "Intent", "Pronunciation", "Vocabulary", "Relevance"].map((label) => (
+                <Card key={label} className="overflow-hidden">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="h-3 w-16 rounded shimmer-block" />
+                    <div className="h-8 w-12 rounded shimmer-block" />
+                    <div className="h-1 w-full rounded shimmer-block" />
+                    <p className="text-[10px] shimmer-text">{label}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <div className="space-y-1.5">
-              <p className="font-semibold text-foreground transition-all duration-500 min-h-[24px]">
-                {ANALYZING_MESSAGES[analyzingMsgIdx]}
-              </p>
-              <p className="text-sm text-muted-foreground">This usually takes 1–2 minutes</p>
-            </div>
-            <div className="flex items-center gap-1 mt-2">
+          </div>
+
+          {/* Skeleton: Summary */}
+          <Card>
+            <CardContent className="p-5 space-y-2">
+              <div className="h-3 w-full rounded shimmer-block" />
+              <div className="h-3 w-4/5 rounded shimmer-block" />
+              <div className="h-3 w-3/5 rounded shimmer-block" />
+              <p className="text-xs shimmer-text mt-2">Generating summary...</p>
+            </CardContent>
+          </Card>
+
+          {/* Skeleton: Audio */}
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              <div className="h-3 w-20 rounded shimmer-block" />
+              <div className="h-10 w-full rounded-lg shimmer-block" />
+              <p className="text-xs shimmer-text">Loading recording...</p>
+            </CardContent>
+          </Card>
+
+          {/* Skeleton: Transcript */}
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <div className="h-3 w-24 rounded shimmer-block" />
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`flex ${i % 2 === 0 ? "justify-start" : "justify-end"}`}>
+                  <div className={`${i % 2 === 0 ? "w-3/4" : "w-2/3"} h-10 rounded-2xl shimmer-block`} />
+                </div>
+              ))}
+              <p className="text-xs shimmer-text text-center">Loading conversation...</p>
+            </CardContent>
+          </Card>
+
+          {/* Progress info */}
+          <div className="text-center space-y-2">
+            <p className="font-semibold shimmer-text transition-all duration-500 min-h-[24px]">
+              {ANALYZING_MESSAGES[analyzingMsgIdx]}
+            </p>
+            <p className="text-sm text-muted-foreground">This usually takes 1–2 minutes</p>
+            <div className="flex items-center justify-center gap-1 mt-2">
               {ANALYZING_MESSAGES.map((_, i) => (
                 <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === analyzingMsgIdx ? "bg-accent w-4" : "bg-muted-foreground/20 w-1.5"}`} />
               ))}
             </div>
           </div>
-        </Card>
+        </div>
       ) : (
         <>
           {/* Overall Score + Category Scores */}
@@ -294,14 +343,67 @@ export default function InterviewReport() {
             </Card>
           )}
 
-          {/* Main content tabs */}
+          {/* Audio Player - Prominent */}
+          {interview.recording_url && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Play className="h-4 w-4 text-accent" />
+                  <p className="text-sm font-medium">Interview Recording</p>
+                </div>
+                <audio controls className="w-full" src={interview.recording_url} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Transcript - Prominent chat bubbles */}
+          <Card>
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-accent" />
+                Conversation Transcript
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={copyTranscript} className="text-xs">
+                <Copy className="h-3 w-3 mr-1" /> Copy
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px] pr-4">
+                {chatMessages.length > 0 ? (
+                  <div className="space-y-3">
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                          msg.role === "user"
+                            ? "bg-accent/10 text-foreground rounded-br-md"
+                            : "bg-muted text-foreground rounded-bl-md"
+                        }`}>
+                          <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
+                            {msg.role === "user" ? "You" : "Officer"}
+                          </p>
+                          {msg.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : interview.transcript ? (
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                    {interview.transcript}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No transcript available</p>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          {/* Tabs for feedback details */}
           <Tabs defaultValue="feedback" className="w-full">
             <TabsList className="w-full justify-start bg-muted/50 p-1 rounded-lg">
               <TabsTrigger value="feedback" className="text-xs sm:text-sm">Detailed Feedback</TabsTrigger>
               <TabsTrigger value="grammar" className="text-xs sm:text-sm">Grammar ({grammarMistakes.length})</TabsTrigger>
               <TabsTrigger value="flags" className="text-xs sm:text-sm">Red Flags ({redFlags.length})</TabsTrigger>
               <TabsTrigger value="plan" className="text-xs sm:text-sm">Improvement</TabsTrigger>
-              <TabsTrigger value="transcript" className="text-xs sm:text-sm">Transcript</TabsTrigger>
             </TabsList>
 
             <TabsContent value="feedback" className="space-y-3 mt-4">
@@ -382,55 +484,7 @@ export default function InterviewReport() {
                 </Card>
               ))}
             </TabsContent>
-
-            <TabsContent value="transcript" className="mt-4">
-              <Card>
-                <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm">Conversation</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={copyTranscript} className="text-xs">
-                    <Copy className="h-3 w-3 mr-1" /> Copy
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[500px] pr-4">
-                    {chatMessages.length > 0 ? (
-                      <div className="space-y-3">
-                        {chatMessages.map((msg, i) => (
-                          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                              msg.role === "user"
-                                ? "bg-accent/10 text-foreground rounded-br-md"
-                                : "bg-muted text-foreground rounded-bl-md"
-                            }`}>
-                              <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
-                                {msg.role === "user" ? "You" : "Officer"}
-                              </p>
-                              {msg.content}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : interview.transcript ? (
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                        {interview.transcript}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground text-center py-8">No transcript available</p>
-                    )}
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
-
-          {interview.recording_url && (
-            <Card>
-              <CardContent className="p-4">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Recording</p>
-                <audio controls className="w-full" src={interview.recording_url} />
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>

@@ -13,25 +13,6 @@ function formatTime(seconds: number) {
   return `${m}:${s}`;
 }
 
-function SpeakingWaveform({ active }: { active: boolean }) {
-  return (
-    <div className="flex items-center gap-0.5 h-4">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div
-          key={i}
-          className={`w-0.5 rounded-full bg-green-400 transition-all duration-150 ${
-            active ? "animate-pulse" : ""
-          }`}
-          style={{
-            height: active ? `${8 + Math.random() * 12}px` : "4px",
-            animationDelay: `${i * 0.1}s`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function InterviewRoom() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,6 +31,7 @@ export default function InterviewRoom() {
   const [camOn, setCamOn] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [connectionQuality, setConnectionQuality] = useState<"good" | "fair" | "poor">("good");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Elapsed timer
   useEffect(() => {
@@ -130,12 +112,12 @@ export default function InterviewRoom() {
           setConnectionQuality("poor");
         });
 
-        // Client-side SDK initiates the call with assistantId
         vapi.start(data.assistantId);
       } catch (err: any) {
         console.error("Failed to start mock test:", err);
-        toast.error("Failed to start mock test");
+        toast.error("Failed to start mock test. Returning to dashboard.");
         setIsLoading(false);
+        setTimeout(() => navigate("/dashboard"), 2000);
       }
     }
 
@@ -145,11 +127,21 @@ export default function InterviewRoom() {
 
   const handleCallEnd = useCallback(async () => {
     setIsConnected(false);
+    setIsProcessing(true);
     streamRef.current?.getTracks().forEach((t) => t.stop());
-    toast.info("Mock test ended. Analyzing results...");
+    toast.info("Mock test ended. Fetching results...");
 
     try {
-      await supabase.functions.invoke("get-interview-results", { body: { interviewId: id } });
+      const { data: resultData } = await supabase.functions.invoke("get-interview-results", { body: { interviewId: id } });
+      
+      // If call failed, show message and go to dashboard
+      if (resultData?.status === "failed") {
+        toast.error("Mock test call failed. No credits were deducted.");
+        setTimeout(() => navigate("/dashboard"), 2000);
+        return;
+      }
+
+      toast.info("Analyzing your performance with AI...");
       await supabase.functions.invoke("analyze-interview", { body: { interviewId: id } });
       navigate(`/interview/${id}/report`);
     } catch {
@@ -181,11 +173,22 @@ export default function InterviewRoom() {
 
   const qualityColor = connectionQuality === "good" ? "bg-green-500" : connectionQuality === "fair" ? "bg-amber-500" : "bg-red-500";
 
+  // Processing screen
+  if (isProcessing) {
+    return (
+      <div className="fixed inset-0 bg-[#1a1a2e] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        <p className="text-white text-lg font-medium">Analyzing your mock test...</p>
+        <p className="text-white/50 text-sm">This may take 15-30 seconds</p>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-[#1a1a2e] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[#16162a] border-b border-white/5">
-        <h1 className="text-base font-semibold text-white">Mock Test Room</h1>
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[#16162a]/80 backdrop-blur-sm border-b border-white/5 z-10">
+        <h1 className="text-sm font-semibold text-white/80">Visa Cracked — Mock Test</h1>
         <div className="flex items-center gap-4">
           {isConnected && (
             <>
@@ -202,38 +205,37 @@ export default function InterviewRoom() {
         </div>
       </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-6 gap-4 relative">
-        {/* Interviewer avatar area */}
-        <div className={`w-full ${isMobile ? "max-w-full" : "max-w-3xl"} aspect-video rounded-2xl bg-[#0f0f23] border border-white/5 flex items-center justify-center relative overflow-hidden`}>
-          <div className="flex flex-col items-center gap-3">
-            <div className={`h-20 w-20 md:h-24 md:w-24 rounded-full bg-accent/20 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-4 ring-accent/50 ring-offset-2 ring-offset-[#0f0f23]" : ""} transition-all`}>
-              <User className="h-10 w-10 md:h-12 md:w-12 text-accent" />
+      {/* Main area - Interviewer + PIP */}
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+        {/* Interviewer area - full bleed */}
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23]">
+          {/* Animated orb behind avatar */}
+          <div className="relative flex flex-col items-center gap-4">
+            <div className={`absolute inset-0 -m-8 rounded-full bg-accent/5 blur-3xl transition-all duration-1000 ${isSpeaking === "assistant" ? "scale-150 opacity-60" : "scale-100 opacity-20"}`} />
+            <div className={`relative h-24 w-24 md:h-32 md:w-32 rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center transition-all duration-300 ${isSpeaking === "assistant" ? "ring-4 ring-accent/40 scale-105" : ""}`}>
+              <User className="h-12 w-12 md:h-16 md:w-16 text-accent/80" />
             </div>
-            <div className="text-center">
-              <p className="text-white font-medium">Visa Officer</p>
-              <div className="flex items-center justify-center gap-2 mt-1">
-                <SpeakingWaveform active={isSpeaking === "assistant"} />
-                <span className="text-xs text-white/50">
-                  {isLoading ? "Connecting..." : isSpeaking === "assistant" ? "Speaking" : "Listening"}
-                </span>
-              </div>
+            <div className="text-center z-10">
+              <p className="text-white font-semibold text-lg">Visa Officer</p>
+              <p className="text-white/40 text-xs mt-0.5">
+                {isLoading ? "Connecting..." : isSpeaking === "assistant" ? "Speaking..." : "Listening"}
+              </p>
             </div>
           </div>
 
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f23]/80 backdrop-blur-sm">
+            <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f23]/90 backdrop-blur-md z-20">
               <div className="text-center">
                 <Loader2 className="h-10 w-10 animate-spin mx-auto mb-3 text-accent" />
                 <p className="text-white font-medium">Connecting to interviewer...</p>
-                <p className="text-xs text-white/40 mt-1">Please allow camera and microphone access</p>
+                <p className="text-xs text-white/40 mt-1">Please allow camera & microphone</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Self-view PIP */}
-        <div className={`absolute ${isMobile ? "bottom-40 right-4 w-28 h-20" : "bottom-28 right-8 w-48 h-36"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors`}>
+        {/* Self-view PIP - top right corner of main area */}
+        <div className={`absolute ${isMobile ? "top-3 right-3 w-24 h-32" : "top-4 right-4 w-44 h-32"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors z-10 bg-[#1a1a2e]`}>
           <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
           {!camOn && (
             <div className="absolute inset-0 bg-[#1a1a2e] flex items-center justify-center">
@@ -242,32 +244,25 @@ export default function InterviewRoom() {
               </div>
             </div>
           )}
-          {isSpeaking === "user" && (
-            <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
-              <SpeakingWaveform active />
-            </div>
-          )}
         </div>
 
-        {/* Subtitles */}
-        <div className={`w-full ${isMobile ? "max-w-full" : "max-w-3xl"} space-y-2 min-h-[60px]`}>
+        {/* Subtitles overlay - bottom of main area */}
+        <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 ${isMobile ? "w-[90%]" : "max-w-2xl w-full"} space-y-1.5 z-10`}>
           {assistantSubtitle && (
-            <div className="bg-white/5 backdrop-blur-sm rounded-xl px-4 py-3">
-              <p className="text-xs text-white/40 mb-0.5">Interviewer</p>
-              <p className="text-white text-sm">{assistantSubtitle}</p>
+            <div className="bg-black/60 backdrop-blur-md rounded-lg px-4 py-2.5 text-center">
+              <p className="text-white text-sm leading-relaxed">{assistantSubtitle}</p>
             </div>
           )}
           {userSubtitle && (
-            <div className="bg-accent/10 backdrop-blur-sm rounded-xl px-4 py-3">
-              <p className="text-xs text-white/40 mb-0.5">You</p>
-              <p className="text-white text-sm">{userSubtitle}</p>
+            <div className="bg-accent/20 backdrop-blur-md rounded-lg px-4 py-2 text-center">
+              <p className="text-white/90 text-xs">{userSubtitle}</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#16162a] border-t border-white/5">
+      {/* Controls bar */}
+      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#16162a]/80 backdrop-blur-sm border-t border-white/5 relative">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"

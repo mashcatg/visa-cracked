@@ -1,15 +1,19 @@
-import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/sidebar-logo.png";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface AppSidebarProps {
   onSearchOpen: () => void;
@@ -21,23 +25,18 @@ interface AppSidebarProps {
 
 function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapsed, onToggleCollapse, onClose }: AppSidebarProps & { onClose?: () => void }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
   const [recentInterviews, setRecentInterviews] = useState<any[]>([]);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [credits, setCredits] = useState<number>(0);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("interviews")
-      .select("*, countries(name, flag_emoji), visa_types(name)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
-        if (data) setRecentInterviews(data);
-      });
-
+    fetchInterviews();
     supabase
       .from("profiles")
       .select("full_name, credits")
@@ -51,70 +50,83 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
       });
   }, [user]);
 
+  function fetchInterviews() {
+    if (!user) return;
+    supabase
+      .from("interviews")
+      .select("*, countries(name, flag_emoji), visa_types(name)")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (data) setRecentInterviews(data);
+      });
+  }
+
+  async function handleShare(interviewId: string) {
+    await supabase.from("interviews").update({ is_public: true }).eq("id", interviewId);
+    const url = `${window.location.origin}/mock/${interviewId}/public`;
+    navigator.clipboard.writeText(url);
+    toast.success("Public link copied to clipboard!");
+  }
+
+  async function handleRename() {
+    if (!renameId || !renameName.trim()) return;
+    await supabase.from("interviews").update({ name: renameName.trim() }).eq("id", renameId);
+    setRenameId(null);
+    fetchInterviews();
+    toast.success("Renamed!");
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    await supabase.from("interviews").delete().eq("id", deleteId);
+    setDeleteId(null);
+    fetchInterviews();
+    toast.success("Deleted!");
+    if (pathname.includes(deleteId)) navigate("/dashboard");
+  }
+
   const displayName = profileName || user?.email || "User";
   const initials = profileName
     ? profileName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() ?? "U";
 
-  const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  ];
-
-  const handleAction = (fn: () => void) => {
-    fn();
-    onClose?.();
-  };
+  const handleAction = (fn: () => void) => { fn(); onClose?.(); };
 
   return (
     <aside className={cn(
       "flex h-screen flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300",
       collapsed ? "w-16" : "w-64"
     )}>
-      {/* Logo + Collapse toggle */}
       <div className="flex items-center gap-2 px-3 py-5 border-b border-sidebar-border">
         {!collapsed && <img src={sidebarLogo} alt="Visa Cracked" className="h-8 ml-3" />}
-        <button
-          onClick={onToggleCollapse}
-          className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50"
-        >
+        <button onClick={onToggleCollapse} className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50">
           {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
-        {navItems.map((item) => (
-          <Tooltip key={item.href} delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Link
-                to={item.href}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  collapsed && "justify-center px-0",
-                  pathname === item.href
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && item.label}
-              </Link>
-            </TooltipTrigger>
-            {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-          </Tooltip>
-        ))}
-
-        {/* Search */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <button
-              onClick={() => handleAction(onSearchOpen)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
-                collapsed && "justify-center px-0"
-              )}
-            >
+            <Link to="/dashboard" onClick={onClose} className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              collapsed && "justify-center px-0",
+              pathname === "/dashboard" ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            )}>
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              {!collapsed && "Dashboard"}
+            </Link>
+          </TooltipTrigger>
+          {collapsed && <TooltipContent side="right">Dashboard</TooltipContent>}
+        </Tooltip>
+
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <button onClick={() => handleAction(onSearchOpen)} className={cn(
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
+              collapsed && "justify-center px-0"
+            )}>
               <Search className="h-4 w-4 shrink-0" />
               {!collapsed && <>Search<kbd className="ml-auto text-[10px] bg-sidebar-accent/50 px-1.5 py-0.5 rounded font-mono">⌘K</kbd></>}
             </button>
@@ -122,17 +134,12 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
           {collapsed && <TooltipContent side="right">Search (⌘K)</TooltipContent>}
         </Tooltip>
 
-        {/* Create Mock Test */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <Button
-              onClick={() => handleAction(onCreateInterview)}
-              className={cn(
-                "w-full mt-3 bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 font-semibold",
-                collapsed && "px-0"
-              )}
-              size={collapsed ? "icon" : "default"}
-            >
+            <Button onClick={() => handleAction(onCreateInterview)} className={cn(
+              "w-full mt-3 bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 font-semibold",
+              collapsed && "px-0"
+            )} size={collapsed ? "icon" : "default"}>
               <Plus className={cn("h-4 w-4", !collapsed && "mr-2")} />
               {!collapsed && "Create Mock Test"}
             </Button>
@@ -140,16 +147,12 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
           {collapsed && <TooltipContent side="right">Create Mock Test</TooltipContent>}
         </Tooltip>
 
-        {/* Credits */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <button
-              onClick={() => handleAction(onPricingOpen)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 mt-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
-                collapsed && "justify-center px-0"
-              )}
-            >
+            <button onClick={() => handleAction(onPricingOpen)} className={cn(
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 mt-2 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors",
+              collapsed && "justify-center px-0"
+            )}>
               <Coins className="h-4 w-4 text-sidebar-primary shrink-0" />
               {!collapsed && (
                 <>
@@ -162,39 +165,51 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
           {collapsed && <TooltipContent side="right">{credits} Credits</TooltipContent>}
         </Tooltip>
 
-        {/* Recent Mock Tests */}
+        {/* Recent Mocks with 3-dot menu */}
         {!collapsed && recentInterviews.length > 0 && (
           <div className="mt-6">
             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Recent Mocks</p>
             {recentInterviews.map((interview) => (
-              <Link
-                key={interview.id}
-                to={`/interview/${interview.id}/report`}
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors"
-              >
-                <FileText className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{interview.name || `${(interview.countries as any)?.flag_emoji || ''} ${(interview.visa_types as any)?.name || 'Mock'}`}</span>
-              </Link>
+              <div key={interview.id} className="group relative flex items-center">
+                <Link
+                  to={`/interview/${interview.id}/report`}
+                  onClick={onClose}
+                  className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors pr-8"
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{interview.name || `${(interview.countries as any)?.flag_emoji || ''} ${(interview.visa_types as any)?.name || 'Mock'}`}</span>
+                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-sidebar-accent/80">
+                      <MoreVertical className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-36">
+                    <DropdownMenuItem onClick={() => handleShare(interview.id)}>
+                      <Share2 className="h-3.5 w-3.5 mr-2" /> Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setRenameId(interview.id); setRenameName(interview.name || ""); }}>
+                      <Pencil className="h-3.5 w-3.5 mr-2" /> Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setDeleteId(interview.id)} className="text-destructive focus:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ))}
           </div>
         )}
 
-        {/* Admin Link */}
         {isAdmin && (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Link
-                to="/admin"
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mt-4",
-                  collapsed && "justify-center px-0",
-                  pathname.startsWith("/admin")
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                )}
-              >
+              <Link to="/admin" onClick={onClose} className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors mt-4",
+                collapsed && "justify-center px-0",
+                pathname.startsWith("/admin") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              )}>
                 <Shield className="h-4 w-4 shrink-0" />
                 {!collapsed && "Admin Panel"}
               </Link>
@@ -204,7 +219,6 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
         )}
       </nav>
 
-      {/* User & Logout */}
       <div className="border-t border-sidebar-border p-2">
         <div className={cn("flex items-center gap-3 px-2 py-2", collapsed && "justify-center")}>
           <div className="h-8 w-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-xs font-bold shrink-0">
@@ -222,6 +236,32 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
           )}
         </div>
       </div>
+
+      {/* Rename Dialog */}
+      <Dialog open={!!renameId} onOpenChange={(o) => !o && setRenameId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Rename Mock Test</DialogTitle></DialogHeader>
+          <Input value={renameName} onChange={(e) => setRenameName(e.target.value)} placeholder="Mock test name" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameId(null)}>Cancel</Button>
+            <Button onClick={handleRename}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Mock Test?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete this mock test and its report.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }
@@ -233,10 +273,7 @@ export default function AppSidebar(props: AppSidebarProps) {
   if (isMobile) {
     return (
       <>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="fixed top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg shadow-lg"
-        >
+        <button onClick={() => setMobileOpen(true)} className="fixed top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg shadow-lg">
           <Menu className="h-5 w-5" />
         </button>
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

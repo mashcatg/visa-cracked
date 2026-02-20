@@ -285,19 +285,19 @@ export default function InterviewRoom() {
 
         {/* Single-line transcript bar */}
         {subtitlesOn && isConnected && lastTranscript && (
-          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[92%]" : "max-w-2xl w-full"} z-10`}>
-            <div className="bg-black/60 backdrop-blur-md rounded-full px-5 py-2.5 truncate">
-              <span className={`text-xs font-semibold mr-2 ${lastTranscript.role === "You" ? "text-accent" : "text-white/50"}`}>
+          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[88%]" : "max-w-xl w-full"} z-10`}>
+            <div className="bg-black/50 backdrop-blur-lg rounded-full px-4 py-1.5 flex items-center gap-1.5 overflow-hidden">
+              <span className={`text-[10px] font-bold uppercase shrink-0 ${lastTranscript.role === "You" ? "text-accent" : "text-white/40"}`}>
                 {lastTranscript.role}
               </span>
-              <span className="text-white text-sm">{lastTranscript.text}</span>
+              <span className="text-white/90 text-xs truncate">{lastTranscript.text}</span>
             </div>
           </div>
         )}
         {subtitlesOn && isConnected && !lastTranscript && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-            <div className="bg-black/40 backdrop-blur-sm rounded-full px-4 py-2">
-              <p className="text-white/30 text-xs">Listening...</p>
+            <div className="bg-black/40 backdrop-blur-lg rounded-full px-3 py-1.5">
+              <p className="text-white/30 text-[10px]">Listening...</p>
             </div>
           </div>
         )}

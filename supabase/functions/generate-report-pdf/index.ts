@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
 
       for (const m of grammarMistakes as any[]) {
         ensureSpace(40);
-        page.drawText(`"${m.original}" → "${m.corrected}"`, { x: margin, y, size: 10, font: fontRegular, color: black });
+        page.drawText(`"${m.original}" -> "${m.corrected}"`, { x: margin, y, size: 10, font: fontRegular, color: black });
         y -= 14;
         if (m.explanation) {
           y = drawWrappedText(page, m.explanation, margin + 10, y, maxWidth - 10, fontRegular, 9, gray, 13);

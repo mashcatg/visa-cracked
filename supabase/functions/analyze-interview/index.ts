@@ -44,7 +44,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get interview data
     const { data: interview } = await serviceClient
       .from("interviews")
       .select("*, countries(name), visa_types(name)")
@@ -58,7 +57,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Don't analyze failed interviews
     if (interview.status === "failed") {
       return new Response(
         JSON.stringify({ success: false, error: "Interview failed, no analysis needed" }),
@@ -71,7 +69,6 @@ Deno.serve(async (req) => {
     const countryName = (interview.countries as any)?.name || "Unknown";
     const visaType = (interview.visa_types as any)?.name || "Unknown";
 
-    // Build conversation context from messages array
     let conversationContext = "";
     if (Array.isArray(messages) && messages.length > 0) {
       conversationContext = messages
@@ -89,7 +86,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Call Lovable AI Gateway
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI API key not configured" }), {
@@ -119,6 +115,7 @@ Deno.serve(async (req) => {
 
 Return ONLY valid JSON with this exact structure:
 {
+  "mock_name": "<creative 3-5 word name for this mock test based on the interview context, e.g. 'The Confident Scholar' or 'Financial Clarity Challenge'>",
   "overall_score": <number 0-100>,
   "english_score": <number 0-100>,
   "confidence_score": <number 0-100>,
@@ -183,7 +180,6 @@ ${textToAnalyze}`,
     const aiData = await aiResponse.json();
     let analysisText = aiData.choices?.[0]?.message?.content || "";
 
-    // Clean markdown code blocks if present
     analysisText = analysisText
       .replace(/```json\s*/g, "")
       .replace(/```\s*/g, "")
@@ -195,6 +191,7 @@ ${textToAnalyze}`,
     } catch {
       console.error("Failed to parse AI response:", analysisText.substring(0, 500));
       analysis = {
+        mock_name: "Mock Test",
         overall_score: 50,
         english_score: 50,
         confidence_score: 50,
@@ -209,6 +206,11 @@ ${textToAnalyze}`,
         detailed_feedback: [],
         summary: "The analysis encountered a parsing error. Please try running the mock test again.",
       };
+    }
+
+    // Update interview name with AI-generated mock_name
+    if (analysis.mock_name) {
+      await serviceClient.from("interviews").update({ name: analysis.mock_name }).eq("id", interviewId);
     }
 
     // Store the report

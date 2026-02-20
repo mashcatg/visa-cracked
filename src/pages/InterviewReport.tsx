@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,16 @@ interface DetailedFeedback {
   suggested_answer?: string;
 }
 
+const ANALYZING_MESSAGES = [
+  "Fetching your interview transcript...",
+  "Analyzing your responses with AI...",
+  "Evaluating grammar and pronunciation...",
+  "Checking for red flags...",
+  "Generating detailed feedback...",
+  "Scoring your confidence level...",
+  "Almost there, preparing your report...",
+];
+
 export default function InterviewReport() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,10 +41,23 @@ export default function InterviewReport() {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [analyzingMsgIdx, setAnalyzingMsgIdx] = useState(0);
+  const pollCountRef = useRef(0);
   const isMobile = useIsMobile();
 
+  // Rotating analyzing messages
+  useEffect(() => {
+    if (report || loading) return;
+    const interval = setInterval(() => {
+      setAnalyzingMsgIdx((i) => (i + 1) % ANALYZING_MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [report, loading]);
+
+  // Fetch interview + report, with polling if report is missing
   useEffect(() => {
     if (!id) return;
+
     async function fetchData() {
       const { data: interviewData } = await supabase
         .from("interviews")
@@ -44,29 +67,54 @@ export default function InterviewReport() {
 
       if (interviewData) {
         setInterview(interviewData);
-        setReport(interviewData.interview_reports);
+        if (interviewData.interview_reports) {
+          setReport(interviewData.interview_reports);
+        }
       }
       setLoading(false);
+      return interviewData;
     }
-    fetchData();
+
+    fetchData().then((data) => {
+      // If no report yet and status is completed, poll
+      if (data && !data.interview_reports && data.status !== "failed") {
+        const pollInterval = setInterval(async () => {
+          pollCountRef.current += 1;
+          if (pollCountRef.current > 30) {
+            clearInterval(pollInterval);
+            return;
+          }
+          const { data: fresh } = await supabase
+            .from("interview_reports")
+            .select("*")
+            .eq("interview_id", id)
+            .maybeSingle();
+          if (fresh) {
+            setReport(fresh);
+            clearInterval(pollInterval);
+          }
+        }, 5000);
+        return () => clearInterval(pollInterval);
+      }
+    });
   }, [id]);
 
-  async function downloadPdf() {
+  async function downloadReport() {
     setDownloading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-report-pdf", {
         body: { interviewId: id },
       });
       if (error) throw error;
-      const blob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], { type: "application/pdf" });
+      const blob = new Blob([Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0))], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `mock-report-${id}.pdf`;
+      a.download = data.filename || `mock-report-${id}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Failed to generate PDF");
+      toast.error("Failed to generate report");
     }
     setDownloading(false);
   }
@@ -163,24 +211,37 @@ export default function InterviewReport() {
               </a>
             </Button>
           )}
-          <Button onClick={downloadPdf} disabled={downloading} variant="outline" size="sm">
+          <Button onClick={downloadReport} disabled={downloading} variant="outline" size="sm">
             {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Download className="h-3.5 w-3.5 mr-1.5" />}
-            PDF
+            Download Report
           </Button>
         </div>
       </div>
 
       {!report ? (
         <Card className="p-8 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-accent" />
-          <p className="font-medium">Analyzing your mock test...</p>
-          <p className="text-sm text-muted-foreground mt-1">This may take a moment</p>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <div className="absolute inset-0 -m-4 rounded-full bg-accent/10 blur-2xl animate-pulse" />
+              <Loader2 className="h-10 w-10 animate-spin text-accent relative z-10" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="font-semibold text-foreground transition-all duration-500 min-h-[24px]">
+                {ANALYZING_MESSAGES[analyzingMsgIdx]}
+              </p>
+              <p className="text-sm text-muted-foreground">This usually takes 1–2 minutes</p>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              {ANALYZING_MESSAGES.map((_, i) => (
+                <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === analyzingMsgIdx ? "bg-accent w-4" : "bg-muted-foreground/20 w-1.5"}`} />
+              ))}
+            </div>
+          </div>
         </Card>
       ) : (
         <>
           {/* Overall Score + Category Scores */}
           <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-            {/* Overall Score Card */}
             <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
               <CardContent className="p-6 flex flex-col items-center justify-center h-full">
                 <div className="relative mb-3">
@@ -206,7 +267,6 @@ export default function InterviewReport() {
               </CardContent>
             </Card>
 
-            {/* Category Scores Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {categories.map((cat) => (
                 <Card key={cat.label} className="overflow-hidden">
@@ -244,7 +304,6 @@ export default function InterviewReport() {
               <TabsTrigger value="transcript" className="text-xs sm:text-sm">Transcript</TabsTrigger>
             </TabsList>
 
-            {/* Detailed Feedback */}
             <TabsContent value="feedback" className="space-y-3 mt-4">
               {detailedFeedback.length > 0 ? detailedFeedback.map((fb, i) => (
                 <Card key={i}>
@@ -273,7 +332,6 @@ export default function InterviewReport() {
               )}
             </TabsContent>
 
-            {/* Grammar */}
             <TabsContent value="grammar" className="space-y-2 mt-4">
               {grammarMistakes.length > 0 ? grammarMistakes.map((m, i) => (
                 <Card key={i}>
@@ -296,7 +354,6 @@ export default function InterviewReport() {
               )}
             </TabsContent>
 
-            {/* Red Flags */}
             <TabsContent value="flags" className="space-y-2 mt-4">
               {redFlags.length > 0 ? redFlags.map((flag, i) => (
                 <Card key={i}>
@@ -313,7 +370,6 @@ export default function InterviewReport() {
               )}
             </TabsContent>
 
-            {/* Improvement */}
             <TabsContent value="plan" className="space-y-2 mt-4">
               {improvementPlan.map((item, i) => (
                 <Card key={i}>
@@ -327,7 +383,6 @@ export default function InterviewReport() {
               ))}
             </TabsContent>
 
-            {/* Transcript */}
             <TabsContent value="transcript" className="mt-4">
               <Card>
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -368,7 +423,6 @@ export default function InterviewReport() {
             </TabsContent>
           </Tabs>
 
-          {/* Recording */}
           {interview.recording_url && (
             <Card>
               <CardContent className="p-4">

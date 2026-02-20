@@ -6,8 +6,10 @@ import PricingModal from "@/components/pricing/PricingModal";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { FileText } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -15,6 +17,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [pricingOpen, setPricingOpen] = useState(false);
   const [interviews, setInterviews] = useState<any[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -44,6 +47,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
   }, [user, searchOpen]);
 
+  const filteredInterviews = mobileSearch
+    ? interviews.filter((i) => {
+        const name = i.name || `${(i.countries as any)?.name} ${(i.visa_types as any)?.name}`;
+        return name.toLowerCase().includes(mobileSearch.toLowerCase());
+      })
+    : interviews;
+
   return (
     <div className="flex h-screen overflow-hidden w-full">
       <AppSidebar
@@ -63,35 +73,79 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           : children}
       </main>
 
-      {/* Search Command Palette */}
-      <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
-        <CommandInput placeholder="Search mock tests..." />
-        <CommandList>
-          <CommandEmpty>No mock tests found.</CommandEmpty>
-          <CommandGroup heading="Mock Tests">
-            {interviews.map((i) => (
-              <CommandItem
-                key={i.id}
-                onSelect={() => {
-                  navigate(`/interview/${i.id}/report`);
-                  setSearchOpen(false);
-                }}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                <span>{(i.countries as any)?.name} — {(i.visa_types as any)?.name}</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {new Date(i.created_at).toLocaleDateString()}
-                </span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
+      {/* Search: Drawer on mobile, CommandDialog on desktop */}
+      {isMobile ? (
+        <Drawer open={searchOpen} onOpenChange={setSearchOpen}>
+          <DrawerContent className="max-h-[80vh]">
+            <DrawerHeader className="pb-2">
+              <DrawerTitle className="text-base">Search Mock Tests</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search mock tests..."
+                  value={mobileSearch}
+                  onChange={(e) => setMobileSearch(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="px-4 pb-4 overflow-y-auto max-h-[60vh] space-y-1.5">
+              {filteredInterviews.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No mock tests found.</p>
+              ) : (
+                filteredInterviews.map((i) => (
+                  <button
+                    key={i.id}
+                    onClick={() => {
+                      navigate(`/interview/${i.id}/report`);
+                      setSearchOpen(false);
+                      setMobileSearch("");
+                    }}
+                    className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 bg-card hover:bg-muted transition-colors text-left"
+                  >
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium truncate flex-1">
+                      {i.name || `${(i.countries as any)?.name} — ${(i.visa_types as any)?.name}`}
+                    </span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(i.created_at).toLocaleDateString()}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
+          <CommandInput placeholder="Search mock tests..." />
+          <CommandList>
+            <CommandEmpty>No mock tests found.</CommandEmpty>
+            <CommandGroup heading="Mock Tests">
+              {interviews.map((i) => (
+                <CommandItem
+                  key={i.id}
+                  onSelect={() => {
+                    navigate(`/interview/${i.id}/report`);
+                    setSearchOpen(false);
+                  }}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  <span>{(i.countries as any)?.name} — {(i.visa_types as any)?.name}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {new Date(i.created_at).toLocaleDateString()}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </CommandDialog>
+      )}
 
-      {/* Create Mock Test Modal */}
       <CreateInterviewModal open={createOpen} onOpenChange={setCreateOpen} />
-
-      {/* Pricing Modal */}
       <PricingModal open={pricingOpen} onOpenChange={setPricingOpen} />
     </div>
   );

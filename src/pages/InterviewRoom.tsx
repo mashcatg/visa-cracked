@@ -13,6 +13,22 @@ function formatTime(seconds: number) {
   return `${m}:${s}`;
 }
 
+const PROCESSING_MESSAGES = [
+  "Fetching your interview transcript...",
+  "Analyzing your responses with AI...",
+  "Evaluating grammar and pronunciation...",
+  "Checking for red flags...",
+  "Generating detailed feedback...",
+  "Scoring your confidence level...",
+  "Almost there, preparing your report...",
+];
+
+const FAREWELL_PHRASES = [
+  "call ended", "goodbye", "interview is over", "that concludes",
+  "thank you for your time", "end of the interview", "have a good day",
+  "all the best", "interview is complete", "that's all",
+];
+
 export default function InterviewRoom() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -32,6 +48,16 @@ export default function InterviewRoom() {
   const [elapsed, setElapsed] = useState(0);
   const [connectionQuality, setConnectionQuality] = useState<"good" | "fair" | "poor">("good");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMsgIdx, setProcessingMsgIdx] = useState(0);
+
+  // Rotating processing messages
+  useEffect(() => {
+    if (!isProcessing) return;
+    const interval = setInterval(() => {
+      setProcessingMsgIdx((i) => (i + 1) % PROCESSING_MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isProcessing]);
 
   // Elapsed timer
   useEffect(() => {
@@ -99,6 +125,14 @@ export default function InterviewRoom() {
             if (message.role === "assistant") {
               setAssistantSubtitle(message.transcript);
               setIsSpeaking("assistant");
+
+              // Auto-stop if bot says farewell
+              const text = (message.transcript || "").toLowerCase();
+              if (FAREWELL_PHRASES.some((phrase) => text.includes(phrase))) {
+                setTimeout(() => {
+                  vapiRef.current?.stop();
+                }, 2000);
+              }
             } else {
               setUserSubtitle(message.transcript);
               setIsSpeaking("user");
@@ -134,7 +168,6 @@ export default function InterviewRoom() {
     try {
       const { data: resultData } = await supabase.functions.invoke("get-interview-results", { body: { interviewId: id } });
       
-      // If call failed, show message and go to dashboard
       if (resultData?.status === "failed") {
         toast.error("Mock test call failed. No credits were deducted.");
         setTimeout(() => navigate("/dashboard"), 2000);
@@ -173,21 +206,33 @@ export default function InterviewRoom() {
 
   const qualityColor = connectionQuality === "good" ? "bg-green-500" : connectionQuality === "fair" ? "bg-amber-500" : "bg-red-500";
 
-  // Processing screen
+  // Processing screen with rotating messages
   if (isProcessing) {
     return (
-      <div className="fixed inset-0 bg-[#1a1a2e] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-12 w-12 animate-spin text-accent" />
-        <p className="text-white text-lg font-medium">Analyzing your mock test...</p>
-        <p className="text-white/50 text-sm">This may take 15-30 seconds</p>
+      <div className="fixed inset-0 bg-[#003B36] flex flex-col items-center justify-center gap-6">
+        <div className="relative">
+          <div className="absolute inset-0 -m-6 rounded-full bg-accent/10 blur-3xl animate-pulse" />
+          <Loader2 className="h-14 w-14 animate-spin text-accent relative z-10" />
+        </div>
+        <div className="text-center space-y-2">
+          <p className="text-white text-lg font-semibold transition-all duration-500 min-h-[28px]">
+            {PROCESSING_MESSAGES[processingMsgIdx]}
+          </p>
+          <p className="text-white/40 text-sm">This usually takes 1–2 minutes</p>
+        </div>
+        <div className="flex items-center gap-1.5 mt-4">
+          {PROCESSING_MESSAGES.map((_, i) => (
+            <div key={i} className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${i === processingMsgIdx ? "bg-accent w-4" : "bg-white/20"}`} />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-[#1a1a2e] flex flex-col">
+    <div className="fixed inset-0 bg-[#003B36] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[#16162a]/80 backdrop-blur-sm border-b border-white/5 z-10">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[#002A26]/80 backdrop-blur-sm border-b border-white/5 z-10">
         <h1 className="text-sm font-semibold text-white/80">Visa Cracked — Mock Test</h1>
         <div className="flex items-center gap-4">
           {isConnected && (
@@ -208,7 +253,7 @@ export default function InterviewRoom() {
       {/* Main area - Interviewer + PIP */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {/* Interviewer area - full bleed */}
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0f0f23] via-[#1a1a2e] to-[#0f0f23]">
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#002A26] via-[#003B36] to-[#002A26]">
           {/* Animated orb behind avatar */}
           <div className="relative flex flex-col items-center gap-4">
             <div className={`absolute inset-0 -m-8 rounded-full bg-accent/5 blur-3xl transition-all duration-1000 ${isSpeaking === "assistant" ? "scale-150 opacity-60" : "scale-100 opacity-20"}`} />
@@ -224,7 +269,7 @@ export default function InterviewRoom() {
           </div>
 
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#0f0f23]/90 backdrop-blur-md z-20">
+            <div className="absolute inset-0 flex items-center justify-center bg-[#002A26]/90 backdrop-blur-md z-20">
               <div className="text-center">
                 <Loader2 className="h-10 w-10 animate-spin mx-auto mb-3 text-accent" />
                 <p className="text-white font-medium">Connecting to interviewer...</p>
@@ -234,11 +279,11 @@ export default function InterviewRoom() {
           )}
         </div>
 
-        {/* Self-view PIP - top right corner of main area */}
-        <div className={`absolute ${isMobile ? "top-3 right-3 w-24 h-32" : "top-4 right-4 w-44 h-32"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors z-10 bg-[#1a1a2e]`}>
+        {/* Self-view PIP - top right corner */}
+        <div className={`absolute ${isMobile ? "top-3 right-3 w-24 h-32" : "top-4 right-4 w-44 h-32"} rounded-xl overflow-hidden border-2 ${isSpeaking === "user" ? "border-accent" : "border-white/10"} shadow-2xl transition-colors z-10 bg-[#003B36]`}>
           <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
           {!camOn && (
-            <div className="absolute inset-0 bg-[#1a1a2e] flex items-center justify-center">
+            <div className="absolute inset-0 bg-[#003B36] flex items-center justify-center">
               <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
                 <span className="text-sm font-bold text-accent">{initials}</span>
               </div>
@@ -262,7 +307,7 @@ export default function InterviewRoom() {
       </div>
 
       {/* Controls bar */}
-      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#16162a]/80 backdrop-blur-sm border-t border-white/5 relative">
+      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#002A26]/80 backdrop-blur-sm border-t border-white/5 relative">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"

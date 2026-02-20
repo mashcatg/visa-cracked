@@ -106,7 +106,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-1">
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Link to="/dashboard" onClick={onClose} className={cn(
@@ -170,14 +170,14 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
           <div className="mt-6">
             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Recent Mocks</p>
             {recentInterviews.map((interview) => (
-              <div key={interview.id} className="group relative flex items-center">
+              <div key={interview.id} className="group relative flex items-center min-w-0">
                 <Link
                   to={`/interview/${interview.id}/report`}
                   onClick={onClose}
-                  className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors pr-8"
+                  className="flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors min-w-0 pr-8"
                 >
                   <FileText className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{interview.name || `${(interview.countries as any)?.flag_emoji || ''} ${(interview.visa_types as any)?.name || 'Mock'}`}</span>
+                  <span className="truncate block max-w-[calc(100%-2rem)]">{interview.name || `${(interview.countries as any)?.flag_emoji || ''} ${(interview.visa_types as any)?.name || 'Mock'}`}</span>
                 </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

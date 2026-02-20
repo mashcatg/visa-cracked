@@ -124,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <CommandInput placeholder="Search mock tests..." />
           <CommandList>
             <CommandEmpty>No mock tests found.</CommandEmpty>
-            <CommandGroup heading="Mock Tests">
+            <CommandGroup heading="RECENT MOCKS" className="[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:tracking-widest [&_[cmdk-group-heading]]:text-muted-foreground/60 [&_[cmdk-group-heading]]:font-semibold">
               {interviews.map((i) => (
                 <CommandItem
                   key={i.id}
@@ -132,10 +132,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     navigate(`/interview/${i.id}/report`);
                     setSearchOpen(false);
                   }}
+                  className="flex items-center gap-3 py-2.5"
                 >
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>{(i.countries as any)?.name} — {(i.visa_types as any)?.name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="flex-1 truncate">
+                    {i.name || `${(i.countries as any)?.name} — ${(i.visa_types as any)?.name}`}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
                     {new Date(i.created_at).toLocaleDateString()}
                   </span>
                 </CommandItem>

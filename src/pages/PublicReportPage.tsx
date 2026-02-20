@@ -41,13 +41,13 @@ export default function PublicReportPage() {
   const overallScore = report?.overall_score ?? 0;
   const scoreColor = (s: number) => s >= 80 ? "text-emerald-600" : s >= 60 ? "text-amber-500" : "text-red-500";
   const categories = [
-    { label: "English", score: report?.english_score, icon: MessageSquare, color: "text-blue-500" },
-    { label: "Confidence", score: report?.confidence_score, icon: Award, color: "text-purple-500" },
-    { label: "Financial", score: report?.financial_clarity_score, icon: TrendingUp, color: "text-emerald-500" },
-    { label: "Intent", score: report?.immigration_intent_score, icon: Shield, color: "text-amber-500" },
-    { label: "Pronunciation", score: report?.pronunciation_score, icon: Mic2, color: "text-pink-500" },
-    { label: "Vocabulary", score: report?.vocabulary_score, icon: BookOpen, color: "text-cyan-500" },
-    { label: "Relevance", score: report?.response_relevance_score, icon: Brain, color: "text-indigo-500" },
+    { label: "English", score: report?.english_score, icon: MessageSquare, color: "text-accent" },
+    { label: "Confidence", score: report?.confidence_score, icon: Award, color: "text-accent" },
+    { label: "Financial", score: report?.financial_clarity_score, icon: TrendingUp, color: "text-accent" },
+    { label: "Intent", score: report?.immigration_intent_score, icon: Shield, color: "text-accent" },
+    { label: "Pronunciation", score: report?.pronunciation_score, icon: Mic2, color: "text-accent" },
+    { label: "Vocabulary", score: report?.vocabulary_score, icon: BookOpen, color: "text-accent" },
+    { label: "Relevance", score: report?.response_relevance_score, icon: Brain, color: "text-accent" },
   ];
 
   const grammarMistakes: any[] = Array.isArray(report?.grammar_mistakes) ? report.grammar_mistakes : [];
@@ -103,21 +103,26 @@ export default function PublicReportPage() {
             </div>
 
             {report.summary && (
-              <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground leading-relaxed">{report.summary}</p></CardContent></Card>
+              <Card>
+                <CardContent className="p-5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Summary</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{report.summary}</p>
+                </CardContent>
+              </Card>
             )}
 
             {redFlags.length > 0 && (
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Red Flags</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-accent" /> Red Flags</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
-                  {redFlags.map((f, i) => <p key={i} className="text-sm flex items-start gap-2"><AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />{f}</p>)}
+                  {redFlags.map((f, i) => <p key={i} className="text-sm flex items-start gap-2"><AlertTriangle className="h-3.5 w-3.5 text-accent mt-0.5 shrink-0" />{f}</p>)}
                 </CardContent>
               </Card>
             )}
 
             {grammarMistakes.length > 0 && (
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><XCircle className="h-4 w-4 text-red-500" /> Grammar ({grammarMistakes.length})</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><XCircle className="h-4 w-4 text-accent" /> Grammar ({grammarMistakes.length})</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {grammarMistakes.map((m: any, i: number) => (
                     <div key={i} className="text-sm">
@@ -130,7 +135,7 @@ export default function PublicReportPage() {
 
             {improvementPlan.length > 0 && (
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-500" /> Improvement Plan</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><CheckCircle className="h-4 w-4 text-accent" /> Improvement Plan</CardTitle></CardHeader>
                 <CardContent className="space-y-1">
                   {improvementPlan.map((item, i) => <p key={i} className="text-sm">{i + 1}. {item}</p>)}
                 </CardContent>

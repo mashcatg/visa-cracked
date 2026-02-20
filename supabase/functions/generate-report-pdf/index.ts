@@ -4,7 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -44,7 +44,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get interview with report
     const { data: interview } = await serviceClient
       .from("interviews")
       .select("*, countries(name), visa_types(name), interview_reports(*)")
@@ -62,14 +61,13 @@ Deno.serve(async (req) => {
     const countryName = (interview.countries as any)?.name || "Unknown";
     const visaType = (interview.visa_types as any)?.name || "Unknown";
 
-    // Generate simple text-based PDF content
     const grammarMistakes = Array.isArray(report?.grammar_mistakes) ? report.grammar_mistakes : [];
     const redFlags = Array.isArray(report?.red_flags) ? report.red_flags : [];
     const improvementPlan = Array.isArray(report?.improvement_plan) ? report.improvement_plan : [];
 
-    // Build PDF content as text
     let content = `VISA CRACKED - MOCK TEST REPORT\n`;
     content += `${"=".repeat(50)}\n\n`;
+    content += `Mock Name: ${interview.name || "N/A"}\n`;
     content += `Country: ${countryName}\n`;
     content += `Visa Type: ${visaType}\n`;
     content += `Date: ${new Date(interview.created_at).toLocaleDateString()}\n\n`;
@@ -79,12 +77,16 @@ Deno.serve(async (req) => {
     content += `English: ${report?.english_score ?? "N/A"}\n`;
     content += `Confidence: ${report?.confidence_score ?? "N/A"}\n`;
     content += `Financial Clarity: ${report?.financial_clarity_score ?? "N/A"}\n`;
-    content += `Immigration Intent: ${report?.immigration_intent_score ?? "N/A"}\n\n`;
+    content += `Immigration Intent: ${report?.immigration_intent_score ?? "N/A"}\n`;
+    content += `Pronunciation: ${report?.pronunciation_score ?? "N/A"}\n`;
+    content += `Vocabulary: ${report?.vocabulary_score ?? "N/A"}\n`;
+    content += `Response Relevance: ${report?.response_relevance_score ?? "N/A"}\n\n`;
 
     if (grammarMistakes.length > 0) {
       content += `GRAMMAR MISTAKES\n${"-".repeat(30)}\n`;
       grammarMistakes.forEach((m: any, i: number) => {
         content += `${i + 1}. "${m.original}" → "${m.corrected}"\n`;
+        if (m.explanation) content += `   ${m.explanation}\n`;
       });
       content += "\n";
     }
@@ -113,13 +115,12 @@ Deno.serve(async (req) => {
       content += `FULL TRANSCRIPT\n${"-".repeat(30)}\n${interview.transcript}\n`;
     }
 
-    // Convert to base64 for simple text report (PDF generation would require a library)
     const encoder = new TextEncoder();
     const bytes = encoder.encode(content);
     const base64 = btoa(String.fromCharCode(...bytes));
 
     return new Response(
-      JSON.stringify({ pdf: base64, filename: `interview-report-${interviewId}.txt` }),
+      JSON.stringify({ pdf: base64, filename: `mock-report-${interviewId}.txt` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

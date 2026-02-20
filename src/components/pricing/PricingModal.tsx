@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Check, Zap } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -13,10 +13,12 @@ interface Props {
 const plans = [
   {
     name: "Starter",
+    subtitle: "For beginners",
     mocks: 10,
     credits: 100,
     price: "800",
     currency: "TK",
+    badge: null,
     popular: false,
     features: [
       "10 Mock Tests",
@@ -28,10 +30,12 @@ const plans = [
   },
   {
     name: "Pro",
+    subtitle: "For serious prep",
     mocks: 20,
     credits: 200,
     price: "1,500",
     currency: "TK",
+    badge: "Best Value",
     popular: true,
     features: [
       "20 Mock Tests",
@@ -45,10 +49,12 @@ const plans = [
   },
   {
     name: "Premium",
+    subtitle: "Maximum preparation",
     mocks: 40,
     credits: 400,
     price: "2,800",
     currency: "TK",
+    badge: "Popular",
     popular: false,
     features: [
       "40 Mock Tests",
@@ -70,29 +76,35 @@ function PricingContent() {
         <div
           key={plan.name}
           className={cn(
-            "relative rounded-xl border p-5 flex flex-col",
+            "relative rounded-2xl border p-6 flex flex-col",
             plan.popular
-              ? "border-accent shadow-lg shadow-accent/10 ring-1 ring-accent"
+              ? "border-accent shadow-lg shadow-accent/10 ring-2 ring-accent"
               : "border-border"
           )}
         >
-          {plan.popular && (
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-              <Zap className="h-3 w-3" /> Most Popular
+          {plan.badge && (
+            <div className={cn(
+              "absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-3 py-1 rounded-full",
+              plan.popular
+                ? "bg-accent text-accent-foreground"
+                : "bg-muted text-muted-foreground"
+            )}>
+              {plan.badge}
             </div>
           )}
-          <h3 className="font-semibold text-lg">{plan.name}</h3>
-          <div className="mt-2 mb-4">
-            <span className="text-3xl font-bold">{plan.price}</span>
+          <h3 className="font-bold text-lg">{plan.name}</h3>
+          <p className="text-xs text-muted-foreground mb-4">{plan.subtitle}</p>
+          <div className="mb-1">
+            <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
             <span className="text-sm text-muted-foreground ml-1">{plan.currency}</span>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
-            {plan.mocks} mock tests · {plan.credits} credits
-          </p>
-          <ul className="space-y-2 flex-1 mb-5">
+          <p className="text-xs text-muted-foreground mb-5">/pack</p>
+          <ul className="space-y-2.5 flex-1 mb-6">
             {plan.features.map((feature) => (
-              <li key={feature} className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-accent flex-shrink-0" />
+              <li key={feature} className="flex items-center gap-2.5 text-sm">
+                <div className="h-4 w-4 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <Check className="h-2.5 w-2.5 text-emerald-600" />
+                </div>
                 {feature}
               </li>
             ))}
@@ -102,8 +114,9 @@ function PricingContent() {
               "w-full font-semibold",
               plan.popular
                 ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
+                : ""
             )}
+            variant={plan.popular ? "default" : "outline"}
           >
             Get {plan.name}
           </Button>

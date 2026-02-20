@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import AppSidebar from "./AppSidebar";
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import CreateInterviewModal from "@/components/interview/CreateInterviewModal";
@@ -54,7 +54,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onToggleCollapse={() => setCollapsed(!collapsed)}
       />
       <main className={`flex-1 overflow-y-auto bg-background ${isMobile ? 'pt-16' : ''}`}>
-        {children}
+        {typeof children === 'object' && children !== null
+          ? React.Children.map(children, (child) =>
+              React.isValidElement(child)
+                ? React.cloneElement(child as React.ReactElement<any>, { onCreateInterview: () => setCreateOpen(true) })
+                : child
+            )
+          : children}
       </main>
 
       {/* Search Command Palette */}

@@ -15,6 +15,7 @@ import InterviewReportPage from "./pages/InterviewReportPage";
 import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 import PublicReportPage from "./pages/PublicReportPage";
+import PaymentResult from "./pages/PaymentResult";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,9 @@ const App = () => (
               <Route path="/interview/:id/room" element={<RequireAuth><InterviewRoom /></RequireAuth>} />
               <Route path="/interview/:id/report" element={<RequireAuth><InterviewReportPage /></RequireAuth>} />
               <Route path="/mock/:id/public" element={<PublicReportPage />} />
+              <Route path="/payment/success" element={<PaymentResult />} />
+              <Route path="/payment/fail" element={<PaymentResult />} />
+              <Route path="/payment/cancel" element={<PaymentResult />} />
               <Route path="/admin/*" element={<RequireAuth><RequireAdmin><AdminPage /></RequireAdmin></RequireAuth>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

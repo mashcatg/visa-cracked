@@ -1,9 +1,13 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -70,6 +74,31 @@ const plans = [
 ];
 
 function PricingContent() {
+  const { session } = useAuth();
+  const [loading, setLoading] = useState<string | null>(null);
+
+  const handlePurchase = async (planName: string) => {
+    if (!session) {
+      toast.error("Please log in to purchase a plan");
+      return;
+    }
+    setLoading(planName);
+    try {
+      const { data, error } = await supabase.functions.invoke("initiate-payment", {
+        body: { plan_name: planName },
+      });
+      if (error) throw error;
+      if (data?.GatewayPageURL) {
+        window.location.href = data.GatewayPageURL;
+      } else {
+        throw new Error(data?.error || "Failed to initiate payment");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Payment initiation failed");
+      setLoading(null);
+    }
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-3 py-4">
       {plans.map((plan) => (
@@ -117,8 +146,14 @@ function PricingContent() {
                 : ""
             )}
             variant={plan.popular ? "default" : "outline"}
+            disabled={loading !== null}
+            onClick={() => handlePurchase(plan.name)}
           >
-            Get {plan.name}
+            {loading === plan.name ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+            ) : (
+              `Get ${plan.name}`
+            )}
           </Button>
         </div>
       ))}

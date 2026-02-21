@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
 
     // SSLCommerz config
     const storeId = Deno.env.get("SSLCOMMERZ_STORE_ID")!;
-    const storePasswd = Deno.env.get("SSLCOMMERZ_STORE_PASSWD")!;
-    const isSandbox = Deno.env.get("SSLCOMMERZ_IS_SANDBOX") !== "false";
+    const storePasswd = Deno.env.get("SSLCOMMERZ_STORE_PASSWORD")!;
+    const isSandbox = (Deno.env.get("SSLCOMMERZ_IS_SANDBOX") ?? "true") !== "false";
     const baseUrl = isSandbox
       ? "https://sandbox.sslcommerz.com"
       : "https://securepay.sslcommerz.com";

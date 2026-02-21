@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       ? "https://sandbox.sslcommerz.com"
       : "https://securepay.sslcommerz.com";
 
-    console.log("SSLCommerz config:", { storeId: storeId ? `${storeId.substring(0, 4)}...` : "EMPTY", storePasswd: storePasswd ? "SET" : "EMPTY", isSandbox, baseUrl });
+    console.log("SSLCommerz config:", { storeId, storePasswd: storePasswd ? `${storePasswd.substring(0,4)}...` : "EMPTY", isSandbox, baseUrl });
 
     const frontendUrl = "https://visa-cracked.lovable.app";
     const functionsUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;

@@ -41,8 +41,8 @@ Deno.serve(async (req) => {
 
     // Validate with SSLCommerz
     const storeId = Deno.env.get("SSLCOMMERZ_STORE_ID")!;
-    const storePasswd = Deno.env.get("SSLCOMMERZ_STORE_PASSWD")!;
-    const isSandbox = Deno.env.get("SSLCOMMERZ_IS_SANDBOX") !== "false";
+    const storePasswd = Deno.env.get("SSLCOMMERZ_STORE_PASSWORD")!;
+    const isSandbox = (Deno.env.get("SSLCOMMERZ_IS_SANDBOX") ?? "true") !== "false";
     const validateUrl = isSandbox
       ? "https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php"
       : "https://securepay.sslcommerz.com/validator/api/validationserverAPI.php";

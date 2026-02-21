@@ -88,12 +88,14 @@ Deno.serve(async (req) => {
     }
 
     // SSLCommerz config
-    const storeId = Deno.env.get("SSLCOMMERZ_STORE_ID")!;
-    const storePasswd = Deno.env.get("SSLCOMMERZ_STORE_PASSWORD")!;
+    const storeId = Deno.env.get("SSLCOMMERZ_STORE_ID") ?? "";
+    const storePasswd = Deno.env.get("SSLCOMMERZ_STORE_PASSWORD") ?? "";
     const isSandbox = (Deno.env.get("SSLCOMMERZ_IS_SANDBOX") ?? "true") !== "false";
     const baseUrl = isSandbox
       ? "https://sandbox.sslcommerz.com"
       : "https://securepay.sslcommerz.com";
+
+    console.log("SSLCommerz config:", { storeId: storeId ? `${storeId.substring(0, 4)}...` : "EMPTY", storePasswd: storePasswd ? "SET" : "EMPTY", isSandbox, baseUrl });
 
     const frontendUrl = "https://visa-cracked.lovable.app";
     const functionsUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;

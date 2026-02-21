@@ -292,7 +292,9 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
               <Progress value={Math.min(credits, 100)} className="h-1.5" />
             </div>
             <div className="px-2 py-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider bg-accent/10 text-accent px-2 py-0.5 rounded-full">Free Plan</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider bg-accent/10 text-accent px-2 py-0.5 rounded-full">
+                {credits >= 400 ? "Premium" : credits >= 200 ? "Pro" : credits >= 100 ? "Starter" : "Free Plan"}
+              </span>
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => { setEditName(profileName || ""); setEditProfileOpen(true); }} className="cursor-pointer">

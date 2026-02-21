@@ -209,6 +209,48 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          amount: number
+          created_at: string
+          credits: number
+          currency: string
+          id: string
+          plan_name: string
+          session_key: string | null
+          status: string
+          tran_id: string
+          user_id: string
+          val_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credits: number
+          currency?: string
+          id?: string
+          plan_name: string
+          session_key?: string | null
+          status?: string
+          tran_id: string
+          user_id: string
+          val_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits?: number
+          currency?: string
+          id?: string
+          plan_name?: string
+          session_key?: string | null
+          status?: string
+          tran_id?: string
+          user_id?: string
+          val_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

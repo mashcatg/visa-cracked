@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.fetch-vapi-data]
 verify_jwt = false
+
+[functions.initiate-payment]
+verify_jwt = false
+
+[functions.payment-ipn]
+verify_jwt = false

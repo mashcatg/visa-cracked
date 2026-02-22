@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -8,17 +8,40 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import logo from "@/assets/logo.png";
+import { getDeviceFingerprint } from "@/lib/fingerprint";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  // Capture referral code from URL
+  useEffect(() => {
+    const ref = searchParams.get("ref");
+    if (ref) localStorage.setItem("referral_code", ref);
+  }, [searchParams]);
+
+  async function processReferral(userId: string) {
+    const refCode = localStorage.getItem("referral_code");
+    if (!refCode) return;
+    try {
+      const fingerprint = getDeviceFingerprint();
+      await supabase.functions.invoke("process-referral", {
+        body: { referral_code: refCode, referred_user_id: userId, device_fingerprint: fingerprint },
+      });
+    } catch {
+      // Silent fail - referral is bonus
+    } finally {
+      localStorage.removeItem("referral_code");
+    }
+  }
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -30,6 +53,7 @@ export default function Signup() {
       toast.error(error.message);
     } else {
       toast.success("Check your email to confirm your account!");
+      if (data.user) processReferral(data.user.id);
     }
     setLoading(false);
   }

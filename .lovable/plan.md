@@ -1,132 +1,109 @@
 
-
-# SSLCommerz Payment Integration Plan
+# Referral System + Mobile Top-Right Profile
 
 ## Overview
+This plan covers two changes:
+1. Move the profile avatar and its dropdown to the **top-right corner** on mobile devices, alongside a new **"Refer" button**
+2. Build a full **referral system** with credit rewards, usage limits, and abuse prevention
 
-Integrate SSLCommerz as a one-time payment gateway for purchasing credit packs (Starter, Pro, Premium). When a user clicks "Get [Plan]" in the pricing modal, they are redirected to the SSLCommerz payment page. After payment, credits are added to their profile.
+---
 
-## Architecture
+## 1. Mobile Top Bar Changes
 
-The flow works like this:
+Currently, mobile only shows a hamburger menu (top-left). We will add a fixed top bar that includes:
+- **Left**: Hamburger menu (existing)
+- **Right**: Refer button (gift icon) + Profile avatar with dropdown
 
-1. User clicks "Get Pro" in the pricing modal
-2. Frontend calls a backend function (`initiate-payment`)
-3. The function creates an order record, calls SSLCommerz API, returns the `GatewayPageURL`
-4. Frontend redirects the user to SSLCommerz
-5. After payment, SSLCommerz redirects user back to success/fail/cancel pages
-6. SSLCommerz also sends an IPN (server-to-server webhook) to a second backend function (`payment-ipn`) which validates the payment and grants credits
+The profile dropdown on mobile will mirror the desktop one (credits, plan, edit profile, dark mode, logout).
 
-## Required Secrets
+---
 
-You will need to provide your SSLCommerz `store_id` and `store_passwd`. We will start with sandbox mode for testing.
+## 2. Referral System - Rules
 
-## Database Changes
+- Each user gets a unique referral link: `https://visa-cracked.lovable.app/signup?ref=<referral_code>`
+- When a referred user creates an account, the referrer earns **10 credits**
+- A user can earn referral credits **up to 3 times** (max 30 credits total)
+- **Anti-abuse**: The system tracks IP address and a device fingerprint. If the same IP or device has already been used for a referral signup, no credits are awarded
 
-Create an `orders` table to track payment transactions:
+---
 
-- `id` (uuid, primary key)
-- `user_id` (uuid, not null)
-- `tran_id` (text, unique) -- unique transaction ID sent to SSLCommerz
-- `plan_name` (text) -- "Starter", "Pro", "Premium"
-- `amount` (numeric) -- 800, 1500, 2800
-- `credits` (integer) -- 100, 200, 400
-- `currency` (text, default 'BDT')
-- `status` (text, default 'pending') -- pending, paid, failed, cancelled
-- `session_key` (text) -- SSLCommerz session key for validation
-- `val_id` (text) -- SSLCommerz validation ID after payment
-- `created_at` (timestamptz)
+## 3. Referral Modal
 
-RLS policies: users can view their own orders; admins can view all.
+A dialog triggered by the "Refer" button showing:
+- The user's unique referral link with a **copy** button
+- Rules section explaining the rewards and limits
+- Display of how many referrals the user has used (e.g., "2/3 referrals used")
 
-## Backend Functions
-
-### 1. `initiate-payment` (new edge function)
-
-- Receives: `plan_name` from authenticated user
-- Looks up plan details (price, credits)
-- Creates an order record in `orders` table with status "pending"
-- Calls SSLCommerz sandbox/live API (`POST /gwprocess/v4/api.php`) with:
-  - `store_id`, `store_passwd`, `total_amount`, `currency: BDT`, `tran_id`
-  - `success_url`, `fail_url`, `cancel_url` pointing to the frontend
-  - `ipn_url` pointing to the `payment-ipn` function
-  - Customer info from the user's profile
-  - `product_name`, `product_category: "topup"`, `product_profile: "non-physical-goods"`
-  - `shipping_method: "NO"`
-- Returns `GatewayPageURL` to frontend
-
-### 2. `payment-ipn` (new edge function)
-
-- Receives POST from SSLCommerz server (no auth required)
-- Validates payment by calling SSLCommerz validation API
-- If valid: updates order status to "paid", grants credits to user's profile
-- If invalid/failed: updates order status accordingly
-
-## Frontend Changes
-
-### PricingModal.tsx
-- Import `useAuth` and `supabase`
-- On button click, call `initiate-payment` function with the plan name
-- Show loading state while waiting
-- Redirect to `GatewayPageURL` via `window.location.href`
-
-### New page: PaymentResult.tsx
-- Handles `/payment/success`, `/payment/fail`, `/payment/cancel` routes
-- Shows appropriate message based on route
-- Success page: shows confirmation, link back to dashboard
-- Fail/Cancel: shows message with retry option
-
-### App.tsx
-- Add routes for `/payment/success`, `/payment/fail`, `/payment/cancel`
+---
 
 ## Technical Details
 
-### initiate-payment edge function
+### Database Changes (3 new items)
 
-```typescript
-// POST body: { plan_name: "Pro" }
-// 1. Verify auth token
-// 2. Map plan_name to { amount, credits }
-// 3. Generate unique tran_id
-// 4. Insert order into orders table
-// 5. POST to SSLCommerz API
-// 6. Save session_key to order
-// 7. Return { GatewayPageURL }
-```
+**New table: `referral_codes`**
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| user_id | uuid | Owner of the code |
+| code | text | Unique short code |
+| created_at | timestamptz | Default now() |
 
-### payment-ipn edge function
+**New table: `referrals`**
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| referrer_id | uuid | Who gets credit |
+| referred_user_id | uuid | Who signed up |
+| ip_address | text | For abuse detection |
+| device_fingerprint | text | For abuse detection |
+| credits_awarded | boolean | Whether credits were given |
+| created_at | timestamptz | Default now() |
 
-```typescript
-// POST from SSLCommerz with form data including tran_id, val_id, status, etc.
-// 1. Parse form body
-// 2. Validate with SSLCommerz validation API:
-//    GET /validator/api/validationserverAPI.php?val_id=X&store_id=Y&store_passwd=Z
-// 3. If VALID/VALIDATED:
-//    - Update order status = 'paid', save val_id
-//    - Add credits to user's profile
-// 4. Return 200 OK
-```
+**RLS Policies:**
+- `referral_codes`: Users can read their own code; insert their own
+- `referrals`: Users can read their own referrals (as referrer)
 
-### SSLCommerz URLs
-- Sandbox init: `https://sandbox.sslcommerz.com/gwprocess/v4/api.php`
-- Sandbox validate: `https://sandbox.sslcommerz.com/validator/api/validationserverAPI.php`
-- Live init: `https://securepay.sslcommerz.com/gwprocess/v4/api.php`
-- Live validate: `https://securepay.sslcommerz.com/validator/api/validationserverAPI.php`
+**Database function: `process_referral`** -- Called from the signup flow via an edge function to:
+1. Validate the referral code
+2. Check referrer hasn't exceeded 3 successful referrals
+3. Check IP/device fingerprint hasn't been used before
+4. If valid, add 10 credits to referrer's profile and mark `credits_awarded = true`
 
-### Files to Create/Modify
+### Edge Function: `process-referral`
 
-| File | Change |
+Called after a new user signs up with a `ref` query parameter. It:
+1. Receives the referral code, new user ID, IP address, and device fingerprint
+2. Calls the `process_referral` database function
+3. Returns success/failure status
+
+### Frontend Changes
+
+**`src/components/layout/AppSidebar.tsx`**
+- In the mobile section (lines 393-405), replace the single hamburger button with a fixed top bar containing:
+  - Left: hamburger menu button (existing)
+  - Right: Refer button (opens referral modal) + Profile avatar (opens dropdown)
+- Add referral modal state and component
+
+**`src/components/referral/ReferralModal.tsx`** (new file)
+- Shows the user's referral link with copy-to-clipboard
+- Displays rules
+- Shows referral usage count (X/3)
+- Fetches/creates the user's referral code on open
+
+**`src/pages/Signup.tsx`**
+- Capture `ref` query parameter from URL
+- Store it in localStorage before signup
+- After successful signup, call the `process-referral` edge function with the code and a device fingerprint
+
+**Device fingerprint**: A simple hash of `navigator.userAgent + screen dimensions + timezone` -- lightweight, no external library needed.
+
+### File Summary
+
+| File | Action |
 |------|--------|
-| Database migration | Create `orders` table with RLS |
-| `supabase/functions/initiate-payment/index.ts` | New: create order + call SSLCommerz init API |
-| `supabase/functions/payment-ipn/index.ts` | New: validate payment + grant credits |
-| `supabase/config.toml` | Add verify_jwt=false for both new functions |
-| `src/components/pricing/PricingModal.tsx` | Add payment initiation on button click |
-| `src/pages/PaymentResult.tsx` | New: success/fail/cancel result page |
-| `src/App.tsx` | Add payment result routes |
-
-### Secrets Needed
-- `SSLCOMMERZ_STORE_ID` -- your store ID
-- `SSLCOMMERZ_STORE_PASSWD` -- your store password
-- `SSLCOMMERZ_IS_SANDBOX` -- "true" for testing, "false" for live
-
+| Database migration | Create `referral_codes` and `referrals` tables, `process_referral` function, RLS policies |
+| `supabase/functions/process-referral/index.ts` | New edge function for referral processing |
+| `src/components/referral/ReferralModal.tsx` | New referral modal component |
+| `src/components/layout/AppSidebar.tsx` | Update mobile top bar with avatar + refer button |
+| `src/pages/Signup.tsx` | Capture and process referral code |
+| `src/lib/fingerprint.ts` | New utility for simple device fingerprinting |

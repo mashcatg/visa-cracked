@@ -2,12 +2,39 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight, Sparkles } from "lucide-react";
+import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight, Sparkles, Gift } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import ReferralModal from "@/components/referral/ReferralModal";
+
+function ReferBanner() {
+  const [referralOpen, setReferralOpen] = useState(false);
+  return (
+    <>
+      <Card className="border-accent/20 bg-gradient-to-r from-accent/5 to-background cursor-pointer hover:border-accent/40 transition-colors"
+        onClick={() => setReferralOpen(true)}>
+        <CardContent className="flex items-center justify-between gap-4 p-4 sm:p-5">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
+              <Gift className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Refer friends & earn credits</p>
+              <p className="text-xs text-muted-foreground">Earn 10 credits for each friend who signs up (up to 3 times)</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
+            <Gift className="h-3.5 w-3.5" /> Refer
+          </Button>
+        </CardContent>
+      </Card>
+      <ReferralModal open={referralOpen} onOpenChange={setReferralOpen} />
+    </>
+  );
+}
 
 export default function Dashboard({ onCreateInterview }: { onCreateInterview?: () => void }) {
   const { user } = useAuth();
@@ -206,6 +233,9 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
           </CardContent>
         </Card>
       )}
+
+      {/* Refer & Earn Banner */}
+      <ReferBanner />
 
       {/* Recent Mock Tests */}
       <div>

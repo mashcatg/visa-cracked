@@ -27,17 +27,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Set up listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user) {
-        // Check admin role - defer to avoid deadlock
         setTimeout(() => checkAdmin(session.user.id), 0);
+        // Process referral for new Google OAuth signups
+        if (event === "SIGNED_IN") {
+          const refCode = localStorage.getItem("referral_code");
+          if (refCode) {
+            import("@/lib/fingerprint").then(({ getDeviceFingerprint }) => {
+              const fingerprint = getDeviceFingerprint();
+              supabase.functions.invoke("process-referral", {
+                body: { referral_code: refCode, referred_user_id: session.user.id, device_fingerprint: fingerprint },
+              }).finally(() => localStorage.removeItem("referral_code"));
+            });
+          }
+        }
       } else {
         setIsAdmin(false);
       }
       setIsLoading(false);
     });
 
+    // THEN check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
@@ -84,11 +97,15 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && !session) {
-      navigate("/login");
+      // Small delay to allow OAuth callback to process
+      const timer = setTimeout(() => {
+        if (!session) navigate("/login");
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [session, isLoading, navigate]);
 
-  if (isLoading) {
+  if (isLoading || (!session && window.location.pathname !== "/login")) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/sidebar-logo.png";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
+import ReferralModal from "@/components/referral/ReferralModal";
 
 interface AppSidebarProps {
   onSearchOpen: () => void;
@@ -389,18 +390,86 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
 export default function AppSidebar(props: AppSidebarProps) {
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [referralOpen, setReferralOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const [mobileProfile, setMobileProfile] = useState<{ name: string | null; credits: number }>({ name: null, credits: 0 });
+
+  useEffect(() => {
+    if (!isMobile || !user) return;
+    supabase.from("profiles").select("full_name, credits").eq("user_id", user.id).single().then(({ data }) => {
+      if (data) setMobileProfile({ name: data.full_name, credits: data.credits ?? 0 });
+    });
+  }, [isMobile, user]);
 
   if (isMobile) {
+    const initials = mobileProfile.name
+      ? mobileProfile.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
+      : user?.email?.[0]?.toUpperCase() ?? "U";
+
     return (
       <>
-        <button onClick={() => setMobileOpen(true)} className="fixed top-4 left-4 z-50 bg-primary text-primary-foreground p-2 rounded-lg">
-          <Menu className="h-5 w-5" />
-        </button>
+        {/* Fixed top bar */}
+        <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
+          {/* Left: hamburger */}
+          <button onClick={() => setMobileOpen(true)} className="bg-primary text-primary-foreground p-2 rounded-lg">
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Right: Refer + Avatar */}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setReferralOpen(true)} className="gap-1.5">
+              <Gift className="h-4 w-4" /> Refer
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+                  {initials}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 z-[100]">
+                <DropdownMenuLabel className="pb-0">
+                  <p className="text-sm font-semibold truncate">{mobileProfile.name || user?.email || "User"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">Credits</span>
+                    <span className="text-xs font-semibold">{mobileProfile.credits}</span>
+                  </div>
+                  <Progress value={Math.min(mobileProfile.credits, 100)} className="h-1.5" />
+                </div>
+                <div className="px-2 py-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-accent/10 text-accent px-2 py-0.5 rounded-full">
+                    {mobileProfile.credits >= 400 ? "Premium" : mobileProfile.credits >= 200 ? "Pro" : mobileProfile.credits >= 100 ? "Starter" : "Free Plan"}
+                  </span>
+                </div>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm">
+                    {theme === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+                    <span>Dark Mode</span>
+                  </div>
+                  <Switch checked={theme === "dark"} onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} className="scale-90" />
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
+                  <LogOut className="h-3.5 w-3.5 mr-2" /> Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetContent side="left" className="p-0 w-64 border-0">
             <SidebarInner {...props} collapsed={false} onClose={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
+
+        <ReferralModal open={referralOpen} onOpenChange={setReferralOpen} />
       </>
     );
   }

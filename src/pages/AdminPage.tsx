@@ -7,6 +7,7 @@ import AdminCountries from "./admin/AdminCountries";
 import AdminVisaTypes from "./admin/AdminVisaTypes";
 import AdminInterviews from "./admin/AdminInterviews";
 import AdminExportCenter from "./admin/AdminExportCenter";
+import AdminDiscounts from "./admin/AdminDiscounts";
 
 export default function AdminPage() {
   return (
@@ -19,6 +20,7 @@ export default function AdminPage() {
           <Route path="countries" element={<AdminCountries />} />
           <Route path="visa-types" element={<AdminVisaTypes />} />
           <Route path="interviews" element={<AdminInterviews />} />
+          <Route path="discounts" element={<AdminDiscounts />} />
           <Route path="export-center" element={<AdminExportCenter />} />
         </Route>
       </Routes>

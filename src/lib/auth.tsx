@@ -97,10 +97,12 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && !session) {
-      // Small delay to allow OAuth callback to process
+      // Longer grace period for OAuth callbacks to establish session
+      const hasOAuthIndicators = window.location.hash.includes("access_token") || window.location.search.includes("code=");
+      const delay = hasOAuthIndicators ? 3000 : 500;
       const timer = setTimeout(() => {
         if (!session) navigate("/login");
-      }, 100);
+      }, delay);
       return () => clearTimeout(timer);
     }
   }, [session, isLoading, navigate]);

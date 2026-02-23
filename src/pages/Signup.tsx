@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,13 @@ export default function Signup() {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { session } = useAuth();
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (session) navigate("/dashboard", { replace: true });
+  }, [session, navigate]);
 
   // Capture referral code from URL
   useEffect(() => {
@@ -60,7 +68,7 @@ export default function Signup() {
 
   async function handleGoogleSignup() {
     const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/dashboard",
+      redirect_uri: window.location.origin + "/signup",
     });
     if (error) toast.error(error.message);
   }

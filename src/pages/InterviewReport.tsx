@@ -273,9 +273,6 @@ export default function InterviewReport() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="shrink-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
               {interview.name || "Mock Test Report"}
@@ -300,7 +297,7 @@ export default function InterviewReport() {
       </div>
 
       {/* Custom Audio Player */}
-      {recordingUrl && <CustomAudioPlayer src={recordingUrl} />}
+      {recordingUrl && <CustomAudioPlayer src={recordingUrl} className="w-full" />}
       {vapiLoading && !recordingUrl && (
         <Card>
           <CardContent className="p-4">
@@ -320,7 +317,7 @@ export default function InterviewReport() {
 
       {/* Analysis Failed */}
       {analysisFailed && !hasSummary && (
-        <Card className="border-destructive/30">
+        <Card className="border-0 border-destructive/30">
           <CardContent className="p-6 text-center space-y-3">
             <XOctagon className="h-10 w-10 text-destructive mx-auto" />
             <h3 className="font-semibold">AI Analysis Failed</h3>
@@ -339,7 +336,7 @@ export default function InterviewReport() {
         <div className="space-y-6 min-w-0">
           {/* Transcript with Chat Bubbles */}
           {(chatMessages.length > 0 || transcript) && (
-            <Card>
+            <Card className="border-0">
               <CardHeader className="pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-accent" />
@@ -382,14 +379,14 @@ export default function InterviewReport() {
 
           {/* AI Summary */}
           {hasSummary ? (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Summary</p>
                 <p className="text-sm leading-relaxed text-muted-foreground">{report.summary}</p>
               </CardContent>
             </Card>
           ) : !analysisFailed ? (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-5 space-y-2">
                 <div className="h-3 w-full rounded shimmer-block" />
                 <div className="h-3 w-4/5 rounded shimmer-block" />
@@ -403,7 +400,7 @@ export default function InterviewReport() {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Detailed Feedback</h3>
               {detailedFeedback.map((fb, i) => (
-                <Card key={i}>
+                <Card key={i} className="border-0">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -427,7 +424,7 @@ export default function InterviewReport() {
               ))}
             </div>
           ) : !analysisFailed && !hasFeedback ? (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-5 space-y-3">
                 <div className="h-3 w-32 rounded shimmer-block" />
                 {[1, 2, 3].map((i) => (
@@ -445,7 +442,7 @@ export default function InterviewReport() {
         <div className="space-y-4">
           {/* Overall Score */}
           {hasSummary ? (
-            <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+            <Card className="border-0 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
               <CardContent className="p-6 flex flex-col items-center justify-center">
                 <div className="relative mb-3">
                   <svg className="w-28 h-28" viewBox="0 0 120 120">
@@ -468,7 +465,7 @@ export default function InterviewReport() {
               </CardContent>
             </Card>
           ) : !analysisFailed ? (
-            <Card className="bg-muted/30">
+            <Card className="border-0 bg-muted/30">
               <CardContent className="p-6 flex flex-col items-center justify-center">
                 <div className="w-28 h-28 rounded-full shimmer-block mb-3" />
                 <div className="h-3 w-24 rounded shimmer-block mt-2" />
@@ -478,7 +475,7 @@ export default function InterviewReport() {
 
           {/* Category Scores */}
           {hasScores ? (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Category Scores</h3>
                 <div className="space-y-3">
@@ -493,7 +490,7 @@ export default function InterviewReport() {
               </CardContent>
             </Card>
           ) : !analysisFailed ? (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-4 space-y-3">
                 {[1, 2, 3, 4, 5, 6, 7].map((i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -508,7 +505,7 @@ export default function InterviewReport() {
 
           {/* Red Flags */}
           {redFlags.length > 0 && (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <AlertTriangle className="h-3.5 w-3.5 text-orange-500" /> Red Flags
@@ -527,7 +524,7 @@ export default function InterviewReport() {
 
           {/* Grammar Mistakes */}
           {grammarMistakes.length > 0 && (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <XCircle className="h-3.5 w-3.5 text-red-500" /> Grammar ({grammarMistakes.length})
@@ -548,7 +545,7 @@ export default function InterviewReport() {
 
           {/* Improvement Plan */}
           {improvementPlan.length > 0 && (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-4">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <CheckCircle className="h-3.5 w-3.5 text-accent" /> Improvement Plan
@@ -569,7 +566,7 @@ export default function InterviewReport() {
 
           {/* No issues detected */}
           {hasIssues === false && grammarMistakes.length === 0 && redFlags.length === 0 && hasScores && (
-            <Card>
+            <Card className="border-0">
               <CardContent className="p-4 text-center">
                 <CheckCircle className="h-5 w-5 text-emerald-500 mx-auto mb-1.5" />
                 <p className="text-sm text-muted-foreground">No grammar mistakes or red flags detected!</p>

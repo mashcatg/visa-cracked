@@ -14,19 +14,17 @@ function ReferBanner() {
   const [referralOpen, setReferralOpen] = useState(false);
   return (
     <>
-      <Card className="border-accent/20 bg-gradient-to-r from-accent/5 to-background cursor-pointer hover:border-accent/40 transition-colors"
+      <Card className="border-0 bg-gradient-to-r from-accent/5 to-background cursor-pointer transition-colors"
         onClick={() => setReferralOpen(true)}>
-        <CardContent className="flex items-center justify-between gap-4 p-4 sm:p-5">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
-              <Gift className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <p className="font-semibold text-sm">Refer friends & earn credits</p>
-              <p className="text-xs text-muted-foreground">Earn 10 credits for each friend who signs up (up to 3 times)</p>
-            </div>
+        <CardContent className="flex flex-col items-start gap-4 p-4 sm:p-5">
+          <div className="h-10 w-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
+            <Gift className="h-5 w-5 text-accent" />
           </div>
-          <Button size="sm" variant="outline" className="shrink-0 gap-1.5">
+          <div>
+            <p className="font-semibold text-sm">Refer friends & earn credits</p>
+            <p className="text-xs text-muted-foreground">Earn 10 credits for each friend who signs up (up to 3 times)</p>
+          </div>
+          <Button size="sm" variant="default" className="w-full sm:w-auto shrink-0 gap-1.5 border-none">
             <Gift className="h-3.5 w-3.5" /> Refer
           </Button>
         </CardContent>
@@ -110,7 +108,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
         {/* Stat cards skeleton */}
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="border-border/50">
+            <Card key={i} className="border-0">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <Skeleton className="h-4 w-24 shimmer-block" />
                 <Skeleton className="h-9 w-9 rounded-lg shimmer-block" />
@@ -128,7 +126,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
           <Skeleton className="h-6 w-44 mb-4 shimmer-block" />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="border-border/50">
+              <Card key={i} className="border-0">
                 <CardHeader className="pb-3">
                   <Skeleton className="h-5 w-32 shimmer-block" />
                   <Skeleton className="h-4 w-24 mt-1 shimmer-block" />
@@ -155,25 +153,20 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Your mock test preparation overview</p>
-      </div>
+      
 
       {/* CTA */}
-      <Card className="relative overflow-hidden border-accent/20 bg-gradient-to-br from-accent/10 via-accent/5 to-background">
+      <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-accent/10 via-accent/5 to-background">
         <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-6 p-8 relative">
-          <div className="flex items-center gap-5">
-            <div className="h-14 w-14 rounded-2xl bg-accent/15 flex items-center justify-center shrink-0">
-              <Sparkles className="h-7 w-7 text-accent" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">Ready to ace your visa interview?</h2>
-              <p className="text-sm text-muted-foreground mt-1">Practice with our AI officer and get instant, detailed feedback on your performance</p>
-            </div>
+        <CardContent className="flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center sm:gap-6 sm:p-8 relative">
+          <div className="h-14 w-14 rounded-2xl bg-accent/15 flex items-center justify-center shrink-0">
+            <Sparkles className="h-7 w-7 text-accent" />
           </div>
-          <Button size="lg" className="shrink-0 px-8 h-12 text-base font-semibold" onClick={onCreateInterview}>
+          <div className="w-full sm:flex-1">
+            <h2 className="text-xl font-bold tracking-tight">Ready to ace your visa interview?</h2>
+            <p className="text-sm text-muted-foreground mt-1">Practice with our AI officer and get instant, detailed feedback on your performance</p>
+          </div>
+          <Button size="lg" className="w-full sm:w-auto shrink-0 px-8 h-12 text-base font-semibold" onClick={onCreateInterview}>
             Start Mock Test
             <ArrowUpRight className="h-4 w-4 ml-2" />
           </Button>
@@ -183,7 +176,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {statCards.map((card) => (
-          <Card key={card.title} className="relative overflow-hidden border-border/50 hover:border-accent/30 transition-colors">
+          <Card key={card.title} className="relative overflow-hidden border-0 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
               <div className="h-9 w-9 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -200,7 +193,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
 
       {/* Score Trend Chart */}
       {chartData.length > 1 && (
-        <Card className="border-border/50">
+        <Card className="border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <BarChart3 className="h-5 w-5 text-accent" />
@@ -241,7 +234,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Mock Tests</h2>
         {recentInterviews.length === 0 ? (
-          <Card className="p-12 text-center border-dashed border-2 border-border/50">
+          <Card className="p-12 text-center border-0">
             <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
             <p className="font-semibold text-lg">No mock tests yet</p>
             <p className="text-sm text-muted-foreground mt-1">Create your first mock test to get started</p>
@@ -250,7 +243,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recentInterviews.map((interview) => (
               <Link key={interview.id} to={`/interview/${interview.id}/report`}>
-                <Card className="hover:border-accent/40 transition-all cursor-pointer h-full group">
+                <Card className="transition-all cursor-pointer h-full group border-0">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div>

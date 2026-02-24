@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2, Coins } from "lucide-react";
+import { Loader2, Zap } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -81,10 +81,6 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
 
   return (
     <div className="space-y-4 py-4 px-1">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-        <Coins className="h-4 w-4 text-accent" />
-        <span>Each mock test costs <strong>10 credits</strong>. You have <strong className="text-accent">{credits}</strong> credits.</span>
-      </div>
       <div className="space-y-2">
         <Label>Country</Label>
         <Select value={countryId} onValueChange={setCountryId}>

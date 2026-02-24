@@ -30,7 +30,7 @@ function ReferralContent({ code, loading, usedCount, onCopy, copied }: {
         <div className="flex gap-2">
           <Input value={loading ? "Loading..." : referralLink} readOnly className="text-sm" />
           <Button size="icon" variant="outline" onClick={onCopy} disabled={!code}>
-            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            {copied ? <Check className="h-4 w-4 text-green-900" /> : <Copy className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -48,15 +48,11 @@ function ReferralContent({ code, loading, usedCount, onCopy, copied }: {
         <ul className="text-sm text-muted-foreground space-y-1.5">
           <li className="flex items-start gap-2">
             <Gift className="h-3.5 w-3.5 mt-0.5 text-accent shrink-0" />
-            Share your link — when someone signs up, you earn <strong className="text-foreground">10 credits</strong>
+            When someone signs up using your link, you earn 10 credits
           </li>
           <li className="flex items-start gap-2">
             <Users className="h-3.5 w-3.5 mt-0.5 text-accent shrink-0" />
-            You can earn referral credits up to <strong className="text-foreground">3 times</strong> (max 30 credits)
-          </li>
-          <li className="flex items-start gap-2">
-            <ShieldCheck className="h-3.5 w-3.5 mt-0.5 text-accent shrink-0" />
-            Anti-abuse: duplicate devices or IPs won't earn extra credits
+            You can earn referral credits up to 3 times
           </li>
         </ul>
       </div>
@@ -122,7 +118,7 @@ export default function ReferralModal({ open, onOpenChange }: ReferralModalProps
             <DrawerTitle className="flex items-center gap-2">
               <Gift className="h-5 w-5 text-accent" /> Refer & Earn Credits
             </DrawerTitle>
-            <DrawerDescription>Share your link and earn free credits</DrawerDescription>
+            <DrawerDescription></DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-6">
             <ReferralContent code={code} loading={loading} usedCount={usedCount} onCopy={handleCopy} copied={copied} />

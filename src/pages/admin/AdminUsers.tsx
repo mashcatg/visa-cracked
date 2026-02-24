@@ -9,7 +9,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Coins, Plus } from "lucide-react";
+import { Zap, Plus } from "lucide-react";
 import DataTableControls from "@/components/admin/DataTableControls";
 import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
 
@@ -153,7 +153,7 @@ export default function AdminUsers() {
                 <TableCell className="text-xs text-muted-foreground font-mono max-w-[120px] truncate">{p.user_id}</TableCell>
                 <TableCell className="text-center">
                   <span className="inline-flex items-center gap-1 text-sm font-semibold">
-                    <Coins className="h-3.5 w-3.5 text-accent" />
+                    <Zap className="h-3.5 w-3.5 text-accent" />
                     {p.credits ?? 0}
                   </span>
                 </TableCell>

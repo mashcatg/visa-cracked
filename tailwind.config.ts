@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["DM Sans", "sans-serif"],
-        display: ["Space Grotesk", "sans-serif"],
+        sans: ["Manrope", "sans-serif"],
+        display: ["Manrope", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

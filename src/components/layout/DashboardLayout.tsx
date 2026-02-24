@@ -34,6 +34,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // URL query param listener for ?pricing=on
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("pricing") === "on") {
+      setPricingOpen(true);
+      // Clean URL by removing the query param
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user || !searchOpen) return;
     supabase

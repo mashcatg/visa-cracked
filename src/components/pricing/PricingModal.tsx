@@ -9,8 +9,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   open: boolean;
@@ -148,21 +147,17 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
 
   return (
     <div className="space-y-4 py-4">
-      {/* Currency Switcher - Radio */}
-      <div className="flex items-center gap-4">
-        <span className="text-sm font-medium">Currency:</span>
-        <RadioGroup value={currency} onValueChange={(value) => setCurrency(value as "BDT" | "USD")}>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="BDT" id="bdt" />
-              <Label htmlFor="bdt" className="cursor-pointer text-sm">BDT</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="USD" id="usd" />
-              <Label htmlFor="usd" className="cursor-pointer text-sm">USD</Label>
-            </div>
-          </div>
-        </RadioGroup>
+      {/* Currency Switcher - Switch */}
+      <div className="flex items-center justify-between gap-4 bg-muted/30 rounded-lg p-3">
+        <div className="flex items-center justify-center gap-3 flex-1">
+          <span className={cn("text-sm font-medium transition-colors", currency === "BDT" ? "text-foreground" : "text-muted-foreground")}>BDT</span>
+          <Switch 
+            checked={currency === "USD"} 
+            onCheckedChange={(checked) => setCurrency(checked ? "USD" : "BDT")}
+            className="data-[state=checked]:bg-accent"
+          />
+          <span className={cn("text-sm font-medium transition-colors", currency === "USD" ? "text-foreground" : "text-muted-foreground")}>USD</span>
+        </div>
       </div>
 
       {/* Coupon Section on Mobile (at top) */}

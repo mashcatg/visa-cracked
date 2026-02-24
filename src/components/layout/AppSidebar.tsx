@@ -328,7 +328,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
         )}
       </nav>
 
-      {!hideProfileMenu && <div className="border-t border-sidebar-border p-2">
+      {!hideProfileMenu && <div className=" p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={cn("flex items-center gap-3 px-2 py-2 w-full rounded-lg hover:bg-sidebar-accent/50 transition-colors", collapsed && "justify-center")}>
@@ -430,81 +430,162 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Profile Dialog */}
-      <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium">Full Name</label>
-              <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your name" />
+      {/* Edit Profile Dialog/Drawer */}
+      {isMobile ? (
+        <Drawer open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+          <DrawerContent>
+            <DrawerHeader><DrawerTitle>Edit Profile</DrawerTitle></DrawerHeader>
+            <div className="px-4 pb-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium">Full Name</label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your name" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setEditProfileOpen(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleEditProfile} disabled={editSaving}>{editSaving ? "Saving..." : "Save"}</Button>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditProfileOpen(false)}>Cancel</Button>
-            <Button onClick={handleEditProfile} disabled={editSaving}>{editSaving ? "Saving..." : "Save"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Change Password Dialog */}
-      <Dialog open={changePassOpen} onOpenChange={setChangePassOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Change Password</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium">New Password</label>
-              <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Confirm Password</label>
-              <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setChangePassOpen(false)}>Cancel</Button>
-            <Button onClick={handleChangePassword} disabled={passSaving}>{passSaving ? "Saving..." : "Change Password"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Transactions Dialog */}
-      <Dialog open={transactionsOpen} onOpenChange={setTransactionsOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Your Transactions</DialogTitle></DialogHeader>
-          {transactionsLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-          ) : transactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No transactions yet</p>
-          ) : (
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={editProfileOpen} onOpenChange={setEditProfileOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader><DialogTitle>Edit Profile</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              {transactions.map((o: any) => (
-                <div key={o.id} className="flex items-center justify-between border rounded-lg p-3">
-                  <div>
-                    <p className="text-sm font-medium">{o.plan_name} Pack</p>
-                    <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">{o.currency === "USD" ? "$" : "৳"}{o.amount}</p>
-                      <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${o.status === "paid" ? "bg-emerald-500/10 text-emerald-600" : o.status === "pending" ? "bg-yellow-500/10 text-yellow-600" : "bg-destructive/10 text-destructive"}`}>
-                        {o.status}
-                      </span>
-                    </div>
-                    {o.status === "paid" && (
-                      <Button size="icon" variant="ghost" onClick={() => downloadInvoice(o)} title="Download Invoice">
-                        <Receipt className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+              <div>
+                <label className="text-sm font-medium">Full Name</label>
+                <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your name" />
+              </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditProfileOpen(false)}>Cancel</Button>
+              <Button onClick={handleEditProfile} disabled={editSaving}>{editSaving ? "Saving..." : "Save"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Change Password Dialog/Drawer */}
+      {isMobile ? (
+        <Drawer open={changePassOpen} onOpenChange={setChangePassOpen}>
+          <DrawerContent>
+            <DrawerHeader><DrawerTitle>Change Password</DrawerTitle></DrawerHeader>
+            <div className="px-4 pb-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium">New Password</label>
+                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Confirm Password</label>
+                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setChangePassOpen(false)}>Cancel</Button>
+                <Button className="flex-1" onClick={handleChangePassword} disabled={passSaving}>{passSaving ? "Saving..." : "Change Password"}</Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={changePassOpen} onOpenChange={setChangePassOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader><DialogTitle>Change Password</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">New Password</label>
+                <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Confirm Password</label>
+                <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setChangePassOpen(false)}>Cancel</Button>
+              <Button onClick={handleChangePassword} disabled={passSaving}>{passSaving ? "Saving..." : "Change Password"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Transactions Dialog/Drawer */}
+      {isMobile ? (
+        <Drawer open={transactionsOpen} onOpenChange={setTransactionsOpen}>
+          <DrawerContent>
+            <DrawerHeader><DrawerTitle>Your Transactions</DrawerTitle></DrawerHeader>
+            <div className="px-4 pb-4 overflow-y-auto max-h-[70vh]">
+              {transactionsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                </div>
+              ) : transactions.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {transactions.map((o: any) => (
+                    <div key={o.id} className="flex items-center justify-between border rounded-lg p-3">
+                      <div>
+                        <p className="text-sm font-medium">{o.plan_name} Plan</p>
+                        <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold">{o.currency === "USD" ? "$" : "৳"}{o.amount}</p>
+                          <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${o.status === "paid" ? "bg-emerald-500/10 text-emerald-600" : o.status === "pending" ? "bg-yellow-500/10 text-yellow-600" : "bg-destructive/10 text-destructive"}`}>
+                            {o.status}
+                          </span>
+                        </div>
+                        {o.status === "paid" && (
+                          <Button size="icon" variant="ghost" onClick={() => downloadInvoice(o)} title="Download Invoice">
+                            <Receipt className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={transactionsOpen} onOpenChange={setTransactionsOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Your Transactions</DialogTitle></DialogHeader>
+            {transactionsLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : transactions.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map((o: any) => (
+                  <div key={o.id} className="flex items-center justify-between border rounded-lg p-3">
+                    <div>
+                      <p className="text-sm font-medium">{o.plan_name} Plan</p>
+                      <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">{o.currency === "USD" ? "$" : "৳"}{o.amount}</p>
+                        <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${o.status === "paid" ? "bg-emerald-500/10 text-emerald-600" : o.status === "pending" ? "bg-yellow-500/10 text-yellow-600" : "bg-destructive/10 text-destructive"}`}>
+                          {o.status}
+                        </span>
+                      </div>
+                      {o.status === "paid" && (
+                        <Button size="icon" variant="ghost" onClick={() => downloadInvoice(o)} title="Download Invoice">
+                          <Receipt className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </aside>
   );
 }
@@ -740,7 +821,7 @@ export default function AppSidebar(props: AppSidebarProps) {
                 {mobileTransactions.map((o: any) => (
                   <div key={o.id} className="flex items-center justify-between border rounded-lg p-3">
                     <div>
-                      <p className="text-sm font-medium">{o.plan_name} Pack</p>
+                      <p className="text-sm font-medium">{o.plan_name} Plan</p>
                       <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-3">

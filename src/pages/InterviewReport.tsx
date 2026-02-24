@@ -63,6 +63,16 @@ export default function InterviewReport() {
   useEffect(() => {
     if (!id) return;
 
+    // Reset state when ID changes
+    setInterview(null);
+    setReport(null);
+    setVapiData(null);
+    setLoading(true);
+    setAnalysisFailed(false);
+
+    let pollInterval: NodeJS.Timeout | null = null;
+    let isComponentMounted = true;
+
     async function fetchData() {
       const { data: interviewData } = await supabase
         .from("interviews")
@@ -70,7 +80,7 @@ export default function InterviewReport() {
         .eq("id", id)
         .single();
 
-      if (interviewData) {
+      if (interviewData && isComponentMounted) {
         setInterview(interviewData);
         if (interviewData.interview_reports) setReport(interviewData.interview_reports);
         if (interviewData.vapi_call_id && interviewData.status === "completed") fetchVapiData(id!);
@@ -80,15 +90,21 @@ export default function InterviewReport() {
     }
 
     fetchData().then((data) => {
+      if (!isComponentMounted) return;
+      
       if (data && data.status !== "failed") {
         pollStartRef.current = Date.now();
-        const pollInterval = setInterval(async () => {
+        pollInterval = setInterval(async () => {
           const elapsed = Date.now() - pollStartRef.current;
           if (elapsed > 120000) {
-            clearInterval(pollInterval);
-            const currentReport = report;
-            if (!currentReport || (!currentReport.summary && !currentReport.english_score && !currentReport.detailed_feedback)) {
-              setAnalysisFailed(true);
+            if (pollInterval) clearInterval(pollInterval);
+            if (isComponentMounted) {
+              setReport((currentReport) => {
+                if (!currentReport || (!currentReport.summary && !currentReport.english_score && !currentReport.detailed_feedback)) {
+                  setAnalysisFailed(true);
+                }
+                return currentReport;
+              });
             }
             return;
           }
@@ -97,21 +113,26 @@ export default function InterviewReport() {
             .select("*, countries(name, flag_emoji), visa_types(name), interview_reports(*)")
             .eq("id", id)
             .single();
-          if (freshInterview) {
+          if (freshInterview && isComponentMounted) {
             setInterview(freshInterview);
             if (!vapiData && freshInterview.vapi_call_id && freshInterview.status === "completed") fetchVapiData(id!);
             if (freshInterview.interview_reports) {
               setReport(freshInterview.interview_reports);
               const r = freshInterview.interview_reports;
               if (r.summary != null && r.english_score != null && Array.isArray(r.grammar_mistakes) && r.grammar_mistakes.length > 0 && Array.isArray(r.detailed_feedback) && r.detailed_feedback.length > 0) {
-                clearInterval(pollInterval);
+                if (pollInterval) clearInterval(pollInterval);
               }
             }
           }
         }, 5000);
-        return () => clearInterval(pollInterval);
       }
     });
+
+    // Cleanup function: stop polling when navigating away
+    return () => {
+      isComponentMounted = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [id]);
 
   async function regenerateReport() {
@@ -262,7 +283,11 @@ export default function InterviewReport() {
   ];
 
   const rawMessages: any[] = vapiData?.messages ?? (Array.isArray(interview.messages) ? interview.messages : []);
-  const chatMessages = rawMessages.filter((m: any) => (m.role === "assistant" || m.role === "user") && m.content);
+  const chatMessages = rawMessages.filter((m: any) => {
+    const hasRole = m.role === "assistant" || m.role === "user" || m.role === "gpt" || m.role === "bot" || (typeof m.role === "string" && (m.role.toLowerCase().includes("assistant") || m.role.toLowerCase().includes("gpt")));
+    const hasContent = m.content || m.message || m.transcript || m.text;
+    return hasRole && hasContent;
+  });
   const recordingUrl = vapiData?.recordingUrl ?? interview.recording_url;
   const transcript = vapiData?.transcript ?? interview.transcript;
   const duration = vapiData?.duration ?? interview.duration;
@@ -352,17 +377,24 @@ export default function InterviewReport() {
                     <div className="space-y-4">
                       {chatMessages.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[78%] px-4 py-3 text-sm leading-relaxed ${
-                            msg.role === "user"
-                              ? "bg-accent/10 border border-accent/20 rounded-2xl rounded-br-sm"
-                              : "bg-muted rounded-2xl rounded-bl-sm"
-                          }`}>
-                            <p className={`text-[10px] font-semibold mb-1 ${
-                              msg.role === "user" ? "text-accent" : "text-muted-foreground"
+                          <div className="flex flex-col gap-1">
+                            <div className={`max-w-xs px-4 py-3 text-sm leading-relaxed ${
+                              msg.role === "user"
+                                ? "bg-accent/15 border border-accent/30 rounded-3xl rounded-tr-lg text-foreground"
+                                : "bg-muted border border-border rounded-3xl rounded-tl-lg text-foreground"
                             }`}>
-                              {msg.role === "user" ? "You" : "Officer"}
-                            </p>
-                            {msg.content}
+                              {msg.content || msg.message || msg.transcript || msg.text}
+                            </div>
+                            {msg.timestamp && (
+                              <p className={`text-xs text-muted-foreground ${
+                                msg.role === "user" ? "text-right pr-4" : "pl-4"
+                              }`}>
+                                {new Date(msg.timestamp * 1000).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -415,7 +447,7 @@ export default function InterviewReport() {
                     </div>
                     {fb.suggested_answer && (
                       <div className="bg-accent/5 rounded-lg p-3 border border-accent/10">
-                        <p className="text-xs font-medium text-accent mb-1">Better Answer</p>
+                        <p className="text-xs font-medium text-accent mb-1">Suggested Answer</p>
                         <p className="text-sm text-muted-foreground">{fb.suggested_answer}</p>
                       </div>
                     )}

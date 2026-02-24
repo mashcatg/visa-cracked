@@ -16,13 +16,15 @@ function ReferBanner() {
     <>
       <Card className="border-0 bg-gradient-to-r from-accent/5 to-background cursor-pointer transition-colors"
         onClick={() => setReferralOpen(true)}>
-        <CardContent className="flex flex-col items-start gap-4 p-4 sm:p-5">
-          <div className="h-10 w-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
-            <Gift className="h-5 w-5 text-accent" />
-          </div>
-          <div>
-            <p className="font-semibold text-sm">Refer friends & earn credits</p>
-            <p className="text-xs text-muted-foreground">Earn 10 credits for each friend who signs up (up to 3 times)</p>
+        <CardContent className="flex flex-col items-start justify-between gap-4 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-5">
+          <div className="flex items-start gap-4 flex-1">
+            <div className="h-10 w-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0 mt-0.5">
+              <Gift className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Refer friends & earn credits</p>
+              <p className="text-xs text-muted-foreground">Earn 10 credits for each friend who signs up (up to 3 times)</p>
+            </div>
           </div>
           <Button size="sm" variant="default" className="w-full sm:w-auto shrink-0 gap-1.5 border-none">
             <Gift className="h-3.5 w-3.5" /> Refer
@@ -40,9 +42,20 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
   const [chartData, setChartData] = useState<any[]>([]);
   const [recentInterviews, setRecentInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profileName, setProfileName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+
+    // Fetch user profile name
+    supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.full_name) setProfileName(data.full_name);
+      });
 
     supabase
       .from("interviews")
@@ -153,7 +166,13 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
 
   return (
     <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-      
+      {/* Greeting */}
+      <div className="space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Howdy {profileName || user?.email || "there"}!
+        </h1>
+        <p className="text-muted-foreground text-sm">Ready to ace your visa interview? Let's practice and improve your skills today.</p>
+      </div>
 
       {/* CTA */}
       <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-accent/10 via-accent/5 to-background">

@@ -8,9 +8,9 @@ const corsHeaders = {
 };
 
 const PLANS: Record<string, { bdt: number; usd: number; credits: number }> = {
-  Starter: { bdt: 800, usd: 7, credits: 100 },
-  Pro: { bdt: 1500, usd: 13, credits: 200 },
-  Premium: { bdt: 2800, usd: 25, credits: 400 },
+  Starter: { bdt: 800, usd: 8, credits: 100 },
+  Pro: { bdt: 1500, usd: 15, credits: 200 },
+  Premium: { bdt: 2800, usd: 28, credits: 400 },
 };
 
 Deno.serve(async (req) => {

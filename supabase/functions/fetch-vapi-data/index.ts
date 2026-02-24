@@ -68,10 +68,17 @@ Deno.serve(async (req) => {
     }
 
     if (interview.user_id !== userData.user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Check if user is admin
+      const { data: isAdmin } = await serviceClient.rpc("has_role", {
+        _user_id: userData.user.id,
+        _role: "admin",
       });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (!interview.vapi_call_id) {

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Coins, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift, Receipt } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/sidebar-logo.png";
@@ -45,6 +45,9 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passSaving, setPassSaving] = useState(false);
+  const [transactionsOpen, setTransactionsOpen] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -108,6 +111,41 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
     setProfileName(editName.trim());
     setEditProfileOpen(false);
     toast.success("Profile updated!");
+  }
+
+  async function loadTransactions() {
+    if (!user) return;
+    setTransactionsLoading(true);
+    const { data } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setTransactions(data || []);
+    setTransactionsLoading(false);
+  }
+
+  function downloadInvoice(order: any) {
+    const lines = [
+      "=== VISA CRACKED - INVOICE ===",
+      "",
+      `Transaction ID: ${order.tran_id}`,
+      `Date: ${new Date(order.created_at).toLocaleDateString()}`,
+      `Plan: ${order.plan_name}`,
+      `Credits: ${order.credits}`,
+      `Amount: ${order.currency === "USD" ? "$" : "৳"}${order.amount}`,
+      `Currency: ${order.currency}`,
+      `Status: ${order.status.toUpperCase()}`,
+      "",
+      "Thank you for your purchase!",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `invoice-${order.tran_id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleChangePassword() {
@@ -304,6 +342,9 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
             <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
               <Lock className="h-3.5 w-3.5 mr-2" /> Change Password
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { loadTransactions(); setTransactionsOpen(true); }} className="cursor-pointer">
+              <Receipt className="h-3.5 w-3.5 mr-2" /> Transactions
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="px-2 py-2 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm">
@@ -381,6 +422,44 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
             <Button variant="outline" onClick={() => setChangePassOpen(false)}>Cancel</Button>
             <Button onClick={handleChangePassword} disabled={passSaving}>{passSaving ? "Saving..." : "Change Password"}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transactions Dialog */}
+      <Dialog open={transactionsOpen} onOpenChange={setTransactionsOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Your Transactions</DialogTitle></DialogHeader>
+          {transactionsLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No transactions yet</p>
+          ) : (
+            <div className="space-y-3">
+              {transactions.map((o: any) => (
+                <div key={o.id} className="flex items-center justify-between border rounded-lg p-3">
+                  <div>
+                    <p className="text-sm font-medium">{o.plan_name} Pack</p>
+                    <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">{o.currency === "USD" ? "$" : "৳"}{o.amount}</p>
+                      <span className={`text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-full ${o.status === "paid" ? "bg-emerald-500/10 text-emerald-600" : o.status === "pending" ? "bg-yellow-500/10 text-yellow-600" : "bg-destructive/10 text-destructive"}`}>
+                        {o.status}
+                      </span>
+                    </div>
+                    {o.status === "paid" && (
+                      <Button size="icon" variant="ghost" onClick={() => downloadInvoice(o)} title="Download Invoice">
+                        <Receipt className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </aside>

@@ -94,20 +94,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !session) {
-      // Longer grace period for OAuth callbacks to establish session
-      const hasOAuthIndicators = window.location.hash.includes("access_token") || window.location.search.includes("code=");
-      const delay = hasOAuthIndicators ? 3000 : 500;
-      const timer = setTimeout(() => {
-        if (!session) navigate("/login");
-      }, delay);
-      return () => clearTimeout(timer);
+    // Wait for auth to fully resolve before deciding to redirect
+    if (!isLoading) {
+      // Give an extra moment for OAuth callbacks to settle
+      const hasOAuthIndicators =
+        window.location.hash.includes("access_token") ||
+        window.location.search.includes("code=");
+      if (hasOAuthIndicators && !session) {
+        // Re-check session after a delay for OAuth
+        const timer = setTimeout(async () => {
+          const { data } = await supabase.auth.getSession();
+          if (!data.session) {
+            setSessionChecked(true);
+          }
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+      setSessionChecked(true);
     }
-  }, [session, isLoading, navigate]);
+  }, [isLoading, session]);
 
-  if (isLoading || (!session && window.location.pathname !== "/login")) {
+  useEffect(() => {
+    if (sessionChecked && !session) {
+      navigate("/login");
+    }
+  }, [sessionChecked, session, navigate]);
+
+  if (!sessionChecked || isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

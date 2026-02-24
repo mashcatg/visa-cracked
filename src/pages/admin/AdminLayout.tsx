@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Users, Shield, Globe, FileText, Stamp, Download, Tag } from "lucide-react";
+import { Users, Shield, Globe, FileText, Stamp, Download, Tag, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const adminNav = [
@@ -9,6 +9,7 @@ const adminNav = [
   { label: "Visa Types", href: "/admin/visa-types", icon: Stamp },
   { label: "All Mock Tests", href: "/admin/interviews", icon: FileText },
   { label: "Discounts", href: "/admin/discounts", icon: Tag },
+  { label: "Transactions", href: "/admin/transactions", icon: Receipt },
   { label: "Export Center", href: "/admin/export-center", icon: Download },
 ];
 

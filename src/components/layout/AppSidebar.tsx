@@ -2,8 +2,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Zap, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift, Receipt } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import sidebarLogo from "@/assets/visa-cracked-icon.png";
-import sidebarLogo2 from "@/assets/visa-cracked-sidebar-logo.png";
+import sidebarLogo from "@/assets/visa-cracked-dark-logo.png";
+import sidebarIcon from "@/assets/visa-cracked-icon.png";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -178,11 +178,25 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
       "flex h-screen flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300",
       collapsed ? "w-16" : "w-64"
     )}>
-      <div className="flex justify-start items-center gap-1 px-3 py-5">
-        {!collapsed && <img src={sidebarLogo} alt="Visa Cracked Icon" className="h-10" />}
-        {!collapsed && <img src={sidebarLogo2} alt="Visa Cracked" className="h-10 invert brightness-0" />} 
+      <div className={cn(
+        "flex px-3 py-5",
+        collapsed ? "flex-col items-center gap-2" : "items-center gap-1"
+      )}>
+        <Link to="/dashboard" onClick={onClose} className={cn(
+          "flex items-center",
+          collapsed && "pb-2"
+        )}>
+          {collapsed ? (
+            <img src={sidebarIcon} alt="Visa Cracked" className="h-9" />
+          ) : (
+            <img src={sidebarLogo} alt="Visa Cracked" className="h-10" />
+          )}
+        </Link>
         {!onClose && (
-          <button onClick={onToggleCollapse} className="ml-auto text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50">
+          <button onClick={onToggleCollapse} className={cn(
+            "text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors p-1 rounded-lg hover:bg-sidebar-accent/50",
+            !collapsed && "ml-auto"
+          )}>
             {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </button>
         )}
@@ -248,13 +262,13 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
         </Tooltip>
 <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <Link to="/dashboard" onClick={() => handleAction(() => onReferralOpen?.())} className={cn(
+            <button onClick={() => handleAction(() => onReferralOpen?.())} className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              collapsed && "justify-center px-0"
+              collapsed && "justify-center px-4"
             )}>
               <Gift className="h-4 w-4 shrink-0" />
               {!collapsed && "Refer & Earn"}
-            </Link>
+            </button>
           </TooltipTrigger>
           {collapsed && <TooltipContent side="right">Refer & Earn</TooltipContent>}
         </Tooltip>

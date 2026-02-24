@@ -1,149 +1,115 @@
 
-
-# Fix OAuth Auth + IP-Based Currency + Admin Discount System
+# Transactions, Admin Audio Access, and USD Payment Fix
 
 ## Overview
-
-Four interconnected changes:
-1. **Fix Google OAuth redirect** -- users land on `/login` instead of `/dashboard` after successful Google sign-in
-2. **IP-based currency detection** -- show BDT for Bangladesh users, USD for everyone else
-3. **Admin coupon/discount system** -- full CRUD in admin panel
-4. **Coupon redemption in pricing modal** -- "Have a coupon?" link with discounted payment
-
----
-
-## 1. Fix Google OAuth Redirect
-
-**Root cause**: After Google OAuth, the user is redirected to `/dashboard`. But `RequireAuth` checks the session, finds it not yet established (the auth state listener hasn't fired yet), and redirects to `/login` within 100ms.
-
-**Fix**:
-- Change `redirect_uri` in Login.tsx and Signup.tsx to `window.location.origin` (not `/dashboard`) so the OAuth callback lands on a non-protected page
-- Add `useEffect` in Login.tsx and Signup.tsx that checks if `session` already exists and navigates to `/dashboard`
-- In `RequireAuth`, increase the grace period and add a check for OAuth callback indicators in the URL (hash fragments) to avoid premature redirect
-
-**Files changed**: `src/pages/Login.tsx`, `src/pages/Signup.tsx`, `src/lib/auth.tsx`
+Four areas of work:
+1. **Transactions page** for users (in profile dropdown) and admins (new admin tab) with invoice download
+2. **Admin access to audio and conversations** on interview reports  
+3. **Fix OAuth redirect** (still landing on /login)
+4. **Fix USD payment** -- update prices to $8/$15/$28 and ensure SSLCommerz receives `currency: "USD"`
 
 ---
 
-## 2. IP-Based Currency (BDT vs USD)
+## 1. Transactions
 
-**Approach**: Use a free IP geolocation API (e.g., `https://ipapi.co/json/`) to detect the user's country. If Bangladesh, show BDT prices; otherwise show USD.
+### User Transactions
+- Add a "Transactions" menu item in the user profile dropdown (both desktop sidebar and mobile dropdown)
+- Clicking it opens a dialog/drawer showing the user's orders from the `orders` table
+- Each row shows: Date, Plan, Amount (with currency symbol), Status (paid/pending/failed)
+- A "Download Invoice" button on each paid order generates a simple text-based invoice
 
-- BDT prices: 800, 1500, 2800
-- USD prices: ~$7, ~$13, ~$25 (approximate conversions, configurable)
+### Admin Transactions Tab
+- New tab "Transactions" in the Admin Panel layout
+- New page `src/pages/admin/AdminTransactions.tsx`
+- Table showing ALL orders with columns: User, Email, Plan, Amount, Currency, Status, Date, Invoice
+- Search by user name/email, filter by status
+- CSV export support (following existing admin patterns)
+- Admin can also download invoices for any paid order
 
-**Frontend**: PricingModal will fetch user's country on mount and display appropriate currency/prices.
-
-**Backend**: The `initiate-payment` edge function will accept a `currency` parameter. For USD, SSLCommerz supports multi-currency -- the function will pass the correct currency and amount.
-
-**Files changed**: `src/components/pricing/PricingModal.tsx`, `supabase/functions/initiate-payment/index.ts`
-
----
-
-## 3. Admin Coupon/Discount System
-
-### Database
-
-**New table: `coupons`**
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | PK, default gen_random_uuid() |
-| code | text | Unique, uppercase coupon code |
-| discount_type | text | "percentage" or "fixed" |
-| discount_amount | numeric | Percentage value or fixed amount |
-| expiration_date | timestamptz | Nullable, when coupon expires |
-| total_usage_limit | integer | Nullable, max total uses |
-| per_user_limit | integer | Default 1, max uses per user |
-| times_used | integer | Default 0, current total uses |
-| is_active | boolean | Default true |
-| created_at | timestamptz | Default now() |
-
-**New table: `coupon_usages`** (tracks per-user usage)
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | PK |
-| coupon_id | uuid | FK to coupons |
-| user_id | uuid | Who used it |
-| order_id | uuid | Nullable, FK to orders |
-| created_at | timestamptz | Default now() |
-
-**RLS Policies**:
-- `coupons`: Admins can CRUD; authenticated users can SELECT active coupons
-- `coupon_usages`: Admins can view all; users can view own; system inserts via edge function
-
-### Admin UI
-
-Add a new "Discounts" tab to the Admin Panel (`AdminLayout.tsx`) with a new page `AdminDiscounts.tsx`:
-- Table showing all coupons with columns: Code, Type, Amount, Expiry, Usage (used/limit), Per-User Limit, Status, Actions
-- "Create Coupon" button opening a form dialog
-- Edit and delete actions on each row
-- Search and pagination (following existing admin table patterns)
-
-**Files changed/created**: `src/pages/admin/AdminLayout.tsx`, `src/pages/admin/AdminDiscounts.tsx` (new), `src/pages/AdminPage.tsx`
+### Invoice Generation
+- Create a new edge function `generate-invoice` that builds a simple PDF invoice using `pdf-lib`
+- Invoice includes: Transaction ID, Date, User Name, Email, Plan Name, Amount, Currency, Status
+- Both users and admins can trigger this
 
 ---
 
-## 4. Coupon Redemption in Pricing Modal
+## 2. Admin Audio and Conversation Access
 
-**UI Changes to PricingModal**:
-- Add a "Have a coupon?" link below the pricing cards
-- Clicking it reveals an input field to enter a coupon code with an "Apply" button
-- On apply, validate the coupon via a new edge function `validate-coupon`
-- If valid, show the discounted price on each plan card (strikethrough original price + new price)
-- Pass the coupon code to `initiate-payment` so the correct amount is charged
+**Problem**: The `fetch-vapi-data` edge function checks `interview.user_id !== userData.user.id` and returns 403 for admins viewing other users' reports.
 
-**Edge function: `validate-coupon`** (new):
-- Receives: coupon code, user_id
-- Checks: code exists, is_active, not expired, total usage not exceeded, per-user usage not exceeded
-- Returns: discount_type, discount_amount, or error
+**Fix**: Update `fetch-vapi-data` to also allow access if the requesting user has the `admin` role. Check for admin role using the `has_role` database function before the ownership check.
 
-**Update `initiate-payment`**:
-- Accept optional `coupon_code` parameter
-- Re-validate the coupon server-side
-- Calculate discounted amount
-- Record coupon usage in `coupon_usages` after creating the order
-- Pass discounted amount to SSLCommerz
+This will automatically make the audio player and conversation transcript visible to admins when they click "View Report" on the Admin Mock Tests table.
 
-**Update `payment-ipn`**:
-- No changes needed (it already validates amount matches order)
+---
 
-**Files changed/created**:
-- `src/components/pricing/PricingModal.tsx`
-- `supabase/functions/validate-coupon/index.ts` (new)
-- `supabase/functions/initiate-payment/index.ts`
+## 3. Fix OAuth Redirect
+
+**Root cause**: The `RequireAuth` component's timer-based approach is unreliable. The `lovable.auth.signInWithOAuth` function redirects to Google, then returns to `/login` (or `/signup`). On return, it calls `supabase.auth.setSession(result.tokens)`. But if the redirect happens before `setSession` completes, the user gets bounced.
+
+**Fix**: The current Login/Signup pages already have `useEffect` that redirects to `/dashboard` when `session` appears. The issue is `RequireAuth`'s redirect fires too fast when users navigate to `/dashboard` directly after OAuth. We need to make `RequireAuth` more resilient:
+
+- Remove the timer-based approach entirely
+- Instead, only redirect to `/login` after confirming the session is truly absent (not just loading)
+- Add a `sessionChecked` flag that only becomes true after `getSession()` resolves AND `onAuthStateChange` has fired at least once
+- This ensures we never redirect during the initial auth check window
+
+---
+
+## 4. Fix USD Payment System
+
+**Price Update**: Change USD prices from $7/$13/$25 to $8/$15/$28 in both frontend and backend.
+
+**Backend Changes** (`initiate-payment`):
+- Update the PLANS constant to `{ bdt: 800, usd: 8, credits: 100 }`, `{ bdt: 1500, usd: 15, credits: 200 }`, `{ bdt: 2800, usd: 28, credits: 400 }`
+- When `currency === "USD"`, send `currency: "USD"` to SSLCommerz (already partially done, just ensure it's correct)
+- Use `value_a` for the user ID (already done), keep the flow clean
+
+**Frontend Changes** (`PricingModal.tsx`):
+- Update USD prices to match: $8, $15, $28
+- Ensure the IP detection properly toggles currency
 
 ---
 
 ## Technical Details
 
-### File Summary
+### Database Changes
+- No new tables needed -- `orders` table already exists with all required fields
+- Need to add admin RLS policy for orders if not already present (already has "Admins can view all orders" -- confirmed)
 
-| File | Action |
-|------|--------|
-| `src/pages/Login.tsx` | Add session redirect + fix OAuth redirect_uri |
-| `src/pages/Signup.tsx` | Add session redirect + fix OAuth redirect_uri |
-| `src/lib/auth.tsx` | Make RequireAuth more robust for OAuth flows |
-| `src/components/pricing/PricingModal.tsx` | Add IP-based currency, coupon input, discounted prices |
-| `supabase/functions/initiate-payment/index.ts` | Add currency + coupon support |
-| `supabase/functions/validate-coupon/index.ts` | New -- validate coupon codes |
-| Database migration | Create `coupons` and `coupon_usages` tables with RLS |
-| `src/pages/admin/AdminDiscounts.tsx` | New -- admin CRUD for coupons |
-| `src/pages/admin/AdminLayout.tsx` | Add Discounts tab |
-| `src/pages/AdminPage.tsx` | Add Discounts route |
-| `supabase/config.toml` | Add validate-coupon function config |
+### New Files
 
-### USD Price Mapping
+| File | Description |
+|------|-------------|
+| `src/pages/admin/AdminTransactions.tsx` | Admin transactions table |
+| `supabase/functions/generate-invoice/index.ts` | PDF invoice generator |
 
-| Plan | BDT | USD |
-|------|-----|-----|
-| Starter | 800 | 7 |
-| Pro | 1,500 | 13 |
-| Premium | 2,800 | 25 |
+### Modified Files
 
-### Coupon Discount Calculation
+| File | Changes |
+|------|---------|
+| `src/lib/auth.tsx` | Fix RequireAuth to be more robust -- use a proper `sessionChecked` state |
+| `src/components/layout/AppSidebar.tsx` | Add "Transactions" item to user dropdown (both desktop + mobile) |
+| `src/pages/admin/AdminLayout.tsx` | Add "Transactions" tab |
+| `src/pages/AdminPage.tsx` | Add transactions route |
+| `supabase/functions/fetch-vapi-data/index.ts` | Allow admin access (skip ownership check for admins) |
+| `supabase/functions/initiate-payment/index.ts` | Update USD prices to $8/$15/$28 |
+| `src/components/pricing/PricingModal.tsx` | Update USD prices to $8/$15/$28 |
+| `supabase/config.toml` | Add generate-invoice function config |
 
-- **Percentage**: `discounted = original * (1 - discount_amount / 100)`, rounded to nearest integer
-- **Fixed (BDT)**: `discounted = original - discount_amount`, minimum 0. For USD orders, the fixed amount is converted proportionally
+### User Transactions UI
+- Desktop: New "Transactions" item in the profile dropdown menu (with a Receipt icon)
+- Mobile: Same item in the mobile dropdown
+- Opens a Dialog (desktop) / Drawer (mobile) listing the user's orders
+- Each paid order has a "Download Invoice" button
 
+### Invoice Content
+Simple PDF with:
+- Company logo and name at top
+- "INVOICE" header
+- Transaction ID, Date
+- Customer name and email
+- Plan name, credits included
+- Amount with currency
+- Payment status
+- "Thank you for your purchase" footer

@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-    const { plan_name, currency = "BDT", coupon_code } = await req.json();
+    const { plan_name, currency: rawCurrency = "BDT", coupon_code } = await req.json();
 
     const plan = PLANS[plan_name];
     if (!plan) {
@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
     );
 
     // Determine base amount
-    const cur = currency === "USD" ? "USD" : "BDT";
+    const currencyUpper = typeof rawCurrency === "string" ? rawCurrency.toUpperCase() : "BDT";
+    const cur = currencyUpper === "USD" ? "USD" : "BDT";
     let amount = cur === "USD" ? plan.usd : plan.bdt;
 
     // Validate & apply coupon if provided

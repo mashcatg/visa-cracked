@@ -292,6 +292,80 @@ export default function InterviewReport() {
   const transcript = vapiData?.transcript ?? interview.transcript;
   const duration = vapiData?.duration ?? interview.duration;
 
+  const scoreWidgets = (
+    <>
+      {/* Overall Score */}
+      {hasSummary ? (
+        <Card className="border-0 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+          <CardContent className="p-6 flex flex-col items-center justify-center">
+            <div className="relative mb-3">
+              <svg className="w-28 h-28" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="8" className="opacity-20" />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="52"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  strokeDasharray={`${overallScore * 3.27} 327`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 60 60)"
+                  className="transition-all duration-1000"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-3xl font-bold">{overallScore}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Target className="h-4 w-4" />
+              <span className="font-semibold text-sm">Overall Score</span>
+            </div>
+            <p className="text-primary-foreground/60 text-xs">{scoreLabel(overallScore)}</p>
+          </CardContent>
+        </Card>
+      ) : !analysisFailed ? (
+        <Card className="border-0 bg-muted/30">
+          <CardContent className="p-6 flex flex-col items-center justify-center">
+            <div className="w-28 h-28 rounded-full shimmer-block mb-3" />
+            <div className="h-3 w-24 rounded shimmer-block mt-2" />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Category Scores */}
+      {hasScores ? (
+        <Card className="border-0">
+          <CardContent className="p-4">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Category Scores</h3>
+            <div className="space-y-3">
+              {categories.map((cat) => (
+                <div key={cat.label} className="flex items-center gap-3">
+                  <cat.icon className="h-3.5 w-3.5 text-accent shrink-0" />
+                  <span className="text-sm text-muted-foreground flex-1">{cat.label}</span>
+                  <span className={`text-sm font-bold ${scoreColor(cat.score ?? 0)}`}>{cat.score ?? "—"}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : !analysisFailed ? (
+        <Card className="border-0">
+          <CardContent className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-3.5 w-3.5 rounded shimmer-block shrink-0" />
+                <div className="h-3 w-16 rounded shimmer-block flex-1" />
+                <div className="h-4 w-8 rounded shimmer-block" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+    </>
+  );
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -353,6 +427,12 @@ export default function InterviewReport() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {isMobile && (
+        <div className="space-y-4">
+          {scoreWidgets}
+        </div>
       )}
 
       {/* Two-Column Layout */}
@@ -472,68 +552,7 @@ export default function InterviewReport() {
 
         {/* RIGHT COLUMN: Score Sidebar */}
         <div className="space-y-4">
-          {/* Overall Score */}
-          {hasSummary ? (
-            <Card className="border-0 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
-              <CardContent className="p-6 flex flex-col items-center justify-center">
-                <div className="relative mb-3">
-                  <svg className="w-28 h-28" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="8" className="opacity-20" />
-                    <circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" strokeWidth="8"
-                      strokeDasharray={`${overallScore * 3.27} 327`}
-                      strokeLinecap="round" transform="rotate(-90 60 60)"
-                      className="transition-all duration-1000"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-3xl font-bold">{overallScore}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Target className="h-4 w-4" />
-                  <span className="font-semibold text-sm">Overall Score</span>
-                </div>
-                <p className="text-primary-foreground/60 text-xs">{scoreLabel(overallScore)}</p>
-              </CardContent>
-            </Card>
-          ) : !analysisFailed ? (
-            <Card className="border-0 bg-muted/30">
-              <CardContent className="p-6 flex flex-col items-center justify-center">
-                <div className="w-28 h-28 rounded-full shimmer-block mb-3" />
-                <div className="h-3 w-24 rounded shimmer-block mt-2" />
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {/* Category Scores */}
-          {hasScores ? (
-            <Card className="border-0">
-              <CardContent className="p-4">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Category Scores</h3>
-                <div className="space-y-3">
-                  {categories.map((cat) => (
-                    <div key={cat.label} className="flex items-center gap-3">
-                      <cat.icon className="h-3.5 w-3.5 text-accent shrink-0" />
-                      <span className="text-sm text-muted-foreground flex-1">{cat.label}</span>
-                      <span className={`text-sm font-bold ${scoreColor(cat.score ?? 0)}`}>{cat.score ?? "—"}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ) : !analysisFailed ? (
-            <Card className="border-0">
-              <CardContent className="p-4 space-y-3">
-                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="h-3.5 w-3.5 rounded shimmer-block shrink-0" />
-                    <div className="h-3 w-16 rounded shimmer-block flex-1" />
-                    <div className="h-4 w-8 rounded shimmer-block" />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ) : null}
+          {!isMobile && scoreWidgets}
 
           {/* Red Flags */}
           {redFlags.length > 0 && (

@@ -89,7 +89,8 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
     fetch("https://ipapi.co/json/")
       .then(r => r.json())
       .then(data => {
-        if (data?.country_code !== "BD") setCurrency("USD");
+        if (!data?.country_code) return;
+        setCurrency(data.country_code === "BD" ? "BDT" : "USD");
       })
       .catch(() => {}); // Default BDT on error
   }, []);

@@ -61,9 +61,30 @@ Deno.serve(async (req) => {
       });
     }
 
-    const visaType = interview.visa_types as any;
-    const vapiPublicKey = visaType?.vapi_public_key || Deno.env.get("VAPI_PUBLIC_KEY");
-    const assistantId = visaType?.vapi_assistant_id || Deno.env.get("VAPI_ASSISTANT_ID");
+    let vapiPublicKey: string | null = null;
+    let assistantId: string | null = null;
+
+    // Try difficulty_modes first if interview has a difficulty set
+    if (interview.difficulty) {
+      const { data: mode } = await serviceClient
+        .from("difficulty_modes")
+        .select("vapi_assistant_id, vapi_public_key, vapi_private_key")
+        .eq("visa_type_id", interview.visa_type_id)
+        .eq("difficulty", interview.difficulty)
+        .single();
+
+      if (mode?.vapi_assistant_id) {
+        vapiPublicKey = mode.vapi_public_key;
+        assistantId = mode.vapi_assistant_id;
+      }
+    }
+
+    // Fallback to visa_type credentials
+    if (!assistantId) {
+      const visaType = interview.visa_types as any;
+      vapiPublicKey = visaType?.vapi_public_key || Deno.env.get("VAPI_PUBLIC_KEY") || null;
+      assistantId = visaType?.vapi_assistant_id || Deno.env.get("VAPI_ASSISTANT_ID") || null;
+    }
 
     if (!vapiPublicKey || !assistantId) {
       return new Response(JSON.stringify({ error: "Vapi not configured for this visa type" }), {
@@ -78,7 +99,6 @@ Deno.serve(async (req) => {
       .update({ status: "in_progress" })
       .eq("id", interviewId);
 
-    // Return config for client-side Vapi SDK to initiate the call
     return new Response(
       JSON.stringify({ publicKey: vapiPublicKey, assistantId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

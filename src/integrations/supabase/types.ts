@@ -146,6 +146,44 @@ export type Database = {
         }
         Relationships: []
       }
+      difficulty_modes: {
+        Row: {
+          created_at: string
+          difficulty: string
+          id: string
+          vapi_assistant_id: string | null
+          vapi_private_key: string | null
+          vapi_public_key: string | null
+          visa_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty: string
+          id?: string
+          vapi_assistant_id?: string | null
+          vapi_private_key?: string | null
+          vapi_public_key?: string | null
+          visa_type_id: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string
+          id?: string
+          vapi_assistant_id?: string | null
+          vapi_private_key?: string | null
+          vapi_public_key?: string | null
+          visa_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "difficulty_modes_visa_type_id_fkey"
+            columns: ["visa_type_id"]
+            isOneToOne: false
+            referencedRelation: "visa_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interview_reports: {
         Row: {
           confidence_score: number | null
@@ -216,6 +254,7 @@ export type Database = {
           cost: number | null
           country_id: string
           created_at: string
+          difficulty: string | null
           duration: number | null
           ended_at: string | null
           id: string
@@ -233,6 +272,7 @@ export type Database = {
           cost?: number | null
           country_id: string
           created_at?: string
+          difficulty?: string | null
           duration?: number | null
           ended_at?: string | null
           id?: string
@@ -250,6 +290,7 @@ export type Database = {
           cost?: number | null
           country_id?: string
           created_at?: string
+          difficulty?: string | null
           duration?: number | null
           ended_at?: string | null
           id?: string

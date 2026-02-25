@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus, Pencil, Key } from "lucide-react";
+import { Trash2, Plus, Pencil, Settings2, Save, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -15,27 +15,36 @@ import DataTableControls from "@/components/admin/DataTableControls";
 import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
 
 const PAGE_SIZE = 10;
+const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 
 const csvColumns: CsvColumn[] = [
   { key: "country", label: "Country", accessor: (r) => (r.countries as any)?.name || "" },
   { key: "name", label: "Name" },
   { key: "description", label: "Description" },
-  { key: "vapi", label: "Vapi Configured", accessor: (r) => r.vapi_assistant_id ? "Yes" : "No" },
 ];
+
+type DifficultyMode = {
+  id?: string;
+  difficulty: string;
+  vapi_assistant_id: string;
+  vapi_public_key: string;
+  vapi_private_key: string;
+};
 
 export default function AdminVisaTypes() {
   const [visaTypes, setVisaTypes] = useState<any[]>([]);
   const [countries, setCountries] = useState<Tables<"countries">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [modesDialogOpen, setModesDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [modesVisaType, setModesVisaType] = useState<any>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [countryId, setCountryId] = useState("");
-  const [vapiAssistantId, setVapiAssistantId] = useState("");
-  const [vapiPublicKey, setVapiPublicKey] = useState("");
-  const [vapiPrivateKey, setVapiPrivateKey] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [modes, setModes] = useState<DifficultyMode[]>([]);
+  const [savingMode, setSavingMode] = useState<string | null>(null);
 
   async function fetchData() {
     const [vt, c] = await Promise.all([
@@ -68,9 +77,6 @@ export default function AdminVisaTypes() {
     setName(vt.name);
     setDescription(vt.description ?? "");
     setCountryId(vt.country_id);
-    setVapiAssistantId(vt.vapi_assistant_id ?? "");
-    setVapiPublicKey(vt.vapi_public_key ?? "");
-    setVapiPrivateKey(vt.vapi_private_key ?? "");
     setDialogOpen(true);
   }
 
@@ -79,17 +85,63 @@ export default function AdminVisaTypes() {
     setName("");
     setDescription("");
     setCountryId("");
-    setVapiAssistantId("");
-    setVapiPublicKey("");
-    setVapiPrivateKey("");
     setDialogOpen(true);
+  }
+
+  async function openModes(vt: any) {
+    setModesVisaType(vt);
+    // Fetch existing modes for this visa type
+    const { data } = await supabase
+      .from("difficulty_modes")
+      .select("*")
+      .eq("visa_type_id", vt.id);
+
+    const existingModes = data || [];
+    const allModes: DifficultyMode[] = DIFFICULTIES.map(d => {
+      const existing = existingModes.find((m: any) => m.difficulty === d);
+      return {
+        id: existing?.id,
+        difficulty: d,
+        vapi_assistant_id: existing?.vapi_assistant_id || "",
+        vapi_public_key: existing?.vapi_public_key || "",
+        vapi_private_key: existing?.vapi_private_key || "",
+      };
+    });
+    setModes(allModes);
+    setModesDialogOpen(true);
+  }
+
+  async function handleSaveMode(mode: DifficultyMode) {
+    if (!modesVisaType) return;
+    setSavingMode(mode.difficulty);
+
+    const payload = {
+      visa_type_id: modesVisaType.id,
+      difficulty: mode.difficulty,
+      vapi_assistant_id: mode.vapi_assistant_id || null,
+      vapi_public_key: mode.vapi_public_key || null,
+      vapi_private_key: mode.vapi_private_key || null,
+    };
+
+    const { error } = await supabase
+      .from("difficulty_modes")
+      .upsert(payload, { onConflict: "visa_type_id,difficulty" });
+
+    if (error) toast.error(error.message);
+    else toast.success(`${mode.difficulty.charAt(0).toUpperCase() + mode.difficulty.slice(1)} mode saved`);
+    setSavingMode(null);
+  }
+
+  function updateMode(difficulty: string, field: string, value: string) {
+    setModes(prev => prev.map(m =>
+      m.difficulty === difficulty ? { ...m, [field]: value } : m
+    ));
   }
 
   async function handleSave() {
     if (!name || !countryId) { toast.error("Name and country are required"); return; }
     const payload = {
       name, description: description || null, country_id: countryId,
-      vapi_assistant_id: vapiAssistantId || null, vapi_public_key: vapiPublicKey || null, vapi_private_key: vapiPrivateKey || null,
     };
     if (editing) {
       const { error } = await supabase.from("visa_types").update(payload).eq("id", editing.id);
@@ -128,8 +180,7 @@ export default function AdminVisaTypes() {
               <TableHead>Country</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Vapi Config</TableHead>
-              <TableHead className="w-24">Actions</TableHead>
+              <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -139,14 +190,10 @@ export default function AdminVisaTypes() {
                 <TableCell className="font-medium">{vt.name}</TableCell>
                 <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{vt.description || "—"}</TableCell>
                 <TableCell>
-                  {vt.vapi_assistant_id ? (
-                    <Badge variant="secondary" className="gap-1"><Key className="h-3 w-3" /> Configured</Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Not set</span>
-                  )}
-                </TableCell>
-                <TableCell>
                   <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openModes(vt)} title="Manage Difficulty Modes">
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(vt)}><Pencil className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(vt.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
@@ -154,16 +201,17 @@ export default function AdminVisaTypes() {
               </TableRow>
             ))}
             {paginated.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No visa types</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No visa types</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
+      {/* Add/Edit Visa Type Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{editing ? "Edit Visa Type" : "Add Visa Type"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Country</Label>
               <Select value={countryId} onValueChange={setCountryId}>
@@ -177,15 +225,71 @@ export default function AdminVisaTypes() {
             </div>
             <div className="space-y-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="F1 Student Visa" /></div>
             <div className="space-y-2"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" /></div>
-            <div className="border-t pt-4 mt-4">
-              <p className="text-sm font-semibold mb-3 flex items-center gap-2"><Key className="h-4 w-4 text-accent" />Vapi Configuration</p>
-              <div className="space-y-3">
-                <div className="space-y-2"><Label>Assistant ID</Label><Input value={vapiAssistantId} onChange={(e) => setVapiAssistantId(e.target.value)} placeholder="asst_..." /></div>
-                <div className="space-y-2"><Label>Public Key</Label><Input value={vapiPublicKey} onChange={(e) => setVapiPublicKey(e.target.value)} placeholder="pk_..." /></div>
-                <div className="space-y-2"><Label>Private Key</Label><Input type="password" value={vapiPrivateKey} onChange={(e) => setVapiPrivateKey(e.target.value)} placeholder="sk_..." /></div>
-              </div>
-            </div>
             <Button onClick={handleSave} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Difficulty Modes Dialog */}
+      <Dialog open={modesDialogOpen} onOpenChange={setModesDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Difficulty Modes — {modesVisaType?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
+            {modes.map((mode) => (
+              <div key={mode.difficulty} className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge variant={mode.vapi_assistant_id ? "default" : "secondary"} className="capitalize text-sm">
+                    {mode.difficulty}
+                  </Badge>
+                  {mode.vapi_assistant_id && (
+                    <span className="text-xs text-muted-foreground">Configured ✓</span>
+                  )}
+                </div>
+                <div className="grid gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Assistant ID</Label>
+                    <Input
+                      value={mode.vapi_assistant_id}
+                      onChange={(e) => updateMode(mode.difficulty, "vapi_assistant_id", e.target.value)}
+                      placeholder="asst_..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Public Key</Label>
+                    <Input
+                      value={mode.vapi_public_key}
+                      onChange={(e) => updateMode(mode.difficulty, "vapi_public_key", e.target.value)}
+                      placeholder="pk_..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Private Key</Label>
+                    <Input
+                      type="password"
+                      value={mode.vapi_private_key}
+                      onChange={(e) => updateMode(mode.difficulty, "vapi_private_key", e.target.value)}
+                      placeholder="sk_..."
+                    />
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleSaveMode(mode)}
+                  disabled={savingMode === mode.difficulty}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  {savingMode === mode.difficulty ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Saving...</>
+                  ) : (
+                    <><Save className="mr-2 h-3 w-3" /> Save {mode.difficulty}</>
+                  )}
+                </Button>
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,6 @@
 
 
+
 # Add Difficulty Modes to Mock Test System
 
 ## Overview
@@ -31,6 +32,7 @@ NEW:      Country -> Visa Type -> Difficulty (Easy/Medium/Hard, has VAPI creds) 
 | vapi_assistant_id | text | Nullable |
 | vapi_public_key | text | Nullable |
 | vapi_private_key | text | Nullable |
+| judgment_system_prompt | text | Nullable, custom AI analysis prompt |
 | created_at | timestamptz | Default now() |
 
 - Unique constraint on (visa_type_id, difficulty) to prevent duplicates
@@ -40,83 +42,69 @@ NEW:      Country -> Visa Type -> Difficulty (Easy/Medium/Hard, has VAPI creds) 
 
 - Add column `difficulty` (text, nullable, default null) to store the selected difficulty for each mock test
 
-### Remove VAPI columns from `visa_types` (optional, deferred)
+### Extend `profiles` table
 
-Keep existing columns on visa_types for backward compatibility but stop using them once difficulty_modes is in place. No migration needed to drop them now.
+- `whatsapp_number`, `facebook_url`, `linkedin_url`, `instagram_url`
+- `onboarding_completed` (boolean, default false)
+- `university_name`, `program_name`, `sevis_id`, `visa_country`, `visa_type`, `start_date`
 
 ---
 
 ## 2. Admin Panel: Manage Difficulty Modes
 
-### Update `AdminVisaTypes.tsx`
+### `AdminVisaTypes.tsx`
 
-- Remove the VAPI Configuration section from the visa type edit dialog (since VAPI creds move to difficulty modes)
-- Add a "Modes" button on each visa type row that opens a sub-dialog to manage Easy/Medium/Hard modes
-- The modes dialog shows 3 cards (Easy, Medium, Hard), each with:
-  - Assistant ID input
-  - Public Key input
-  - Private Key input
-  - Save button per mode
-- When saving, upsert into `difficulty_modes` for that visa_type_id + difficulty
+- "Modes" button on each visa type row opens a dialog with Easy/Medium/Hard cards
+- Each card has: Assistant ID, Public Key, Private Key, Judgment System Prompt
+- Upserts into `difficulty_modes`
 
 ---
 
 ## 3. Create Mock Test Modal
 
-### Update `CreateInterviewModal.tsx`
+### `CreateInterviewModal.tsx`
 
-Add a third step after visa type selection:
-
-```text
-Country -> Visa Type -> Difficulty (Easy / Medium / Hard)
-```
-
-- After selecting a visa type, fetch available difficulty modes from `difficulty_modes` where `visa_type_id = selected`
-- Show only difficulties that have been configured (have VAPI credentials)
-- Use radio-style cards or a Select dropdown for the 3 difficulty options
-- Store the selected difficulty when creating the interview
-- Pass `difficulty` to the `interviews` insert
+Country -> Visa Type -> Difficulty (Easy / Medium / Hard) -> Start
 
 ---
 
-## 4. Update `start-interview` Edge Function
+## 4. Onboarding Flow
 
-Currently queries `visa_types(vapi_assistant_id, vapi_public_key, vapi_private_key)`. Change to:
+### `src/pages/Onboarding.tsx`
 
-- Read the `difficulty` from the interview record
-- Query `difficulty_modes` where `visa_type_id` matches AND `difficulty` matches
-- Use those VAPI credentials instead
-- Fallback: if no difficulty mode found, fall back to visa_type credentials (backward compatibility)
+3-step wizard:
+1. Contact & Social (WhatsApp required, Facebook/LinkedIn/Instagram optional)
+2. Visa Details (upload document for OCR extraction or manual entry)
+3. Review & Confirm
 
----
+### `src/pages/DashboardPage.tsx`
 
-## 5. Fix Build Error
-
-Add the missing `validate-coupon` function entry to `supabase/config.toml`:
-
-```toml
-[functions.validate-coupon]
-verify_jwt = false
-```
+Redirects to `/onboarding` if `onboarding_completed` is false.
 
 ---
 
-## Files Summary
+## 5. Document OCR Pipeline
 
-| File | Action |
-|------|--------|
-| Database migration | Create `difficulty_modes` table + add `difficulty` column to `interviews` |
-| `supabase/config.toml` | Add `validate-coupon` entry |
-| `src/pages/admin/AdminVisaTypes.tsx` | Remove VAPI section, add "Modes" button with difficulty management dialog |
-| `src/components/interview/CreateInterviewModal.tsx` | Add difficulty selection step |
-| `supabase/functions/start-interview/index.ts` | Fetch VAPI creds from `difficulty_modes` instead of `visa_types` |
-| `src/integrations/supabase/types.ts` | Auto-updated after migration |
+### `supabase/functions/extract-document/index.ts`
+
+1. Receives base64 document
+2. Mistral OCR (`mistral-ocr-latest`) extracts text
+3. Gemini 2.5 Flash structures data into profile fields
+4. Returns JSON with university_name, program_name, sevis_id, etc.
 
 ---
 
-## Technical Notes
+## 6. Judgment System Prompt
 
-- The `difficulty_modes` table uses a unique constraint on `(visa_type_id, difficulty)` to ensure only one config per difficulty per visa type
-- In the Create Mock Test modal, only difficulties with configured VAPI credentials are shown as selectable (others are grayed out or hidden)
-- The interview name will include difficulty: e.g., "US F1 Student Visa Mock (Hard)"
-- Existing interviews without a difficulty value remain functional -- the start-interview function falls back to visa_type credentials
+### `analyze-interview` Edge Function
+
+- Fetches `judgment_system_prompt` from `difficulty_modes` table
+- Uses it as base system prompt for AI analysis (with {country}, {visaType}, {difficulty} placeholders)
+- Falls back to generic prompt if not configured
+
+---
+
+## 7. Pricing Fix
+
+- Ultimate plan: $54 / ৳5,400 (40% discount from original $90 / ৳9,000)
+- Badge shows "🔥 40% OFF"

@@ -29,6 +29,7 @@ type DifficultyMode = {
   vapi_assistant_id: string;
   vapi_public_key: string;
   vapi_private_key: string;
+  judgment_system_prompt: string;
 };
 
 export default function AdminVisaTypes() {

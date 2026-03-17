@@ -106,6 +106,7 @@ export default function AdminVisaTypes() {
         vapi_assistant_id: existing?.vapi_assistant_id || "",
         vapi_public_key: existing?.vapi_public_key || "",
         vapi_private_key: existing?.vapi_private_key || "",
+        judgment_system_prompt: existing?.judgment_system_prompt || "",
       };
     });
     setModes(allModes);

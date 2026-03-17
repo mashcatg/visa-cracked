@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -92,6 +91,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch judgment system prompt from difficulty_modes if available
+    let customJudgmentPrompt: string | null = null;
+    if (interview.difficulty && interview.visa_type_id) {
+      const { data: mode } = await serviceClient
+        .from("difficulty_modes")
+        .select("judgment_system_prompt")
+        .eq("visa_type_id", interview.visa_type_id)
+        .eq("difficulty", interview.difficulty)
+        .single();
+      if (mode?.judgment_system_prompt) {
+        customJudgmentPrompt = mode.judgment_system_prompt;
+      }
+    }
+
     // Fetch live transcript from Vapi
     let vapiMessages: any[] = [];
     let vapiTranscript = "";
@@ -101,7 +114,6 @@ Deno.serve(async (req) => {
       const vapiKey = Deno.env.get("VAPI_PRIVATE_KEY");
       if (vapiKey) {
         try {
-          // Try with per-visa key first
           let privateKey = vapiKey;
           if (interview.visa_type_id) {
             const { data: visaType } = await serviceClient
@@ -155,13 +167,21 @@ Deno.serve(async (req) => {
 
     const countryName = (interview.countries as any)?.name || "Unknown";
     const visaType = (interview.visa_types as any)?.name || "Unknown";
+    const difficultyLabel = interview.difficulty ? ` (${interview.difficulty} difficulty)` : "";
 
     // Context about auto-cut
     const autoCutNote = (endedReason && (endedReason.includes("max-duration") || endedReason === "customer-ended-call-too-short"))
       ? "\n\nIMPORTANT: This interview was automatically terminated because the maximum time limit was reached. The applicant did not finish the interview naturally. This should be considered a NEGATIVE factor in the evaluation — it shows poor time management or inability to provide concise answers."
       : "";
 
-    const baseSystemPrompt = `You are an expert visa interview evaluator specializing in ${countryName} ${visaType} visa interviews. Return ONLY valid JSON with no markdown, no code blocks, no extra text.`;
+    // Use custom judgment prompt if configured, otherwise default
+    const baseSystemPrompt = customJudgmentPrompt
+      ? customJudgmentPrompt
+          .replace(/\{country\}/g, countryName)
+          .replace(/\{visaType\}/g, visaType)
+          .replace(/\{difficulty\}/g, interview.difficulty || "unknown")
+      : `You are an expert visa interview evaluator specializing in ${countryName} ${visaType} visa interviews${difficultyLabel}. Return ONLY valid JSON with no markdown, no code blocks, no extra text.`;
+
     const baseTranscript = `\n\nInterview Transcript:\n${textToAnalyze}${autoCutNote}`;
 
     // Upsert a blank row so report page knows analysis started

@@ -29,6 +29,7 @@ type DifficultyMode = {
   vapi_assistant_id: string;
   vapi_public_key: string;
   vapi_private_key: string;
+  judgment_system_prompt: string;
 };
 
 export default function AdminVisaTypes() {
@@ -105,6 +106,7 @@ export default function AdminVisaTypes() {
         vapi_assistant_id: existing?.vapi_assistant_id || "",
         vapi_public_key: existing?.vapi_public_key || "",
         vapi_private_key: existing?.vapi_private_key || "",
+        judgment_system_prompt: existing?.judgment_system_prompt || "",
       };
     });
     setModes(allModes);
@@ -121,6 +123,7 @@ export default function AdminVisaTypes() {
       vapi_assistant_id: mode.vapi_assistant_id || null,
       vapi_public_key: mode.vapi_public_key || null,
       vapi_private_key: mode.vapi_private_key || null,
+      judgment_system_prompt: mode.judgment_system_prompt || null,
     };
 
     const { error } = await supabase
@@ -273,6 +276,15 @@ export default function AdminVisaTypes() {
                       value={mode.vapi_private_key}
                       onChange={(e) => updateMode(mode.difficulty, "vapi_private_key", e.target.value)}
                       placeholder="sk_..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Judgment System Prompt</Label>
+                    <Textarea
+                      value={mode.judgment_system_prompt || ""}
+                      onChange={(e) => updateMode(mode.difficulty, "judgment_system_prompt", e.target.value)}
+                      placeholder="Custom system prompt for AI analysis of this difficulty level... Leave empty to use default."
+                      className="min-h-[80px] text-xs"
                     />
                   </div>
                 </div>

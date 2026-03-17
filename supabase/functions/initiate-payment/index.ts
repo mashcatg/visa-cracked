@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -11,7 +10,7 @@ const PLANS: Record<string, { bdt: number; usd: number; credits: number }> = {
   Starter: { bdt: 800, usd: 8, credits: 100 },
   Pro: { bdt: 1500, usd: 15, credits: 200 },
   Premium: { bdt: 2800, usd: 28, credits: 400 },
-  Ultimate: { bdt: 9000, usd: 90, credits: 600 },
+  Ultimate: { bdt: 5400, usd: 54, credits: 600 },
 };
 
 Deno.serve(async (req) => {

@@ -12,6 +12,7 @@ import ResetPassword from "./pages/ResetPassword";
 import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import EditProfilePage from "./pages/EditProfilePage";
+import TransactionsPage from "./pages/TransactionsPage";
 import InterviewRoom from "./pages/InterviewRoom";
 import InterviewReportPage from "./pages/InterviewReportPage";
 import AdminPage from "./pages/AdminPage";
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
               <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
               <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
+              <Route path="/transactions" element={<RequireAuth><TransactionsPage /></RequireAuth>} />
               <Route path="/interview/:id/room" element={<RequireAuth><InterviewRoom /></RequireAuth>} />
               <Route path="/interview/:id/report" element={<RequireAuth><InterviewReportPage /></RequireAuth>} />
               <Route path="/mock/:id/public" element={<PublicReportPage />} />

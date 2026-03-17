@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Zap, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift, Receipt } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Zap, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift, Download } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/visa-cracked-dark-logo.png";
@@ -384,14 +384,11 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
             <DropdownMenuItem onClick={() => navigate("/profile/edit")} className="cursor-pointer">
               <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setEditName(profileName || ""); setEditProfileOpen(true); }} className="cursor-pointer">
-              <User className="h-3.5 w-3.5 mr-2" /> Quick Edit Name
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
               <Lock className="h-3.5 w-3.5 mr-2" /> Change Password
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { loadTransactions(); setTransactionsOpen(true); }} className="cursor-pointer">
-              <Receipt className="h-3.5 w-3.5 mr-2" /> Transactions
+            <DropdownMenuItem onClick={() => navigate("/transactions")} className="cursor-pointer">
+              <Download className="h-3.5 w-3.5 mr-2" /> Transactions
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <div className="px-2 py-2 flex items-center justify-between">
@@ -557,7 +554,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
                         </div>
                         {o.status === "paid" && (
                           <Button size="icon" variant="ghost" onClick={() => downloadInvoice(o)} title="Download Invoice">
-                            <Receipt className="h-4 w-4" />
+                            <Download className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -595,7 +592,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
                       </div>
                       {o.status === "paid" && (
                         <Button size="icon" variant="ghost" onClick={() => downloadInvoice(o)} title="Download Invoice">
-                          <Receipt className="h-4 w-4" />
+                          <Download className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
@@ -772,14 +769,11 @@ export default function AppSidebar(props: AppSidebarProps) {
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); navigate("/profile/edit"); }}>
                 <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
               </Button>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); setMobileEditName(mobileProfile.name || ""); setMobileEditProfileOpen(true); }}>
-                <User className="h-3.5 w-3.5 mr-2" /> Quick Edit Name
-              </Button>
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); setMobileNewPassword(""); setMobileConfirmPassword(""); setMobileChangePassOpen(true); }}>
                 <Lock className="h-3.5 w-3.5 mr-2" /> Change Password
               </Button>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); loadMobileTransactions(); setMobileTransactionsOpen(true); }}>
-                <Receipt className="h-3.5 w-3.5 mr-2" /> Transactions
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); navigate("/transactions"); }}>
+                <Download className="h-3.5 w-3.5 mr-2" /> Transactions
               </Button>
 
               <div className="p-3 flex items-center justify-between">
@@ -860,7 +854,7 @@ export default function AppSidebar(props: AppSidebarProps) {
                       </div>
                       {o.status === "paid" && (
                         <Button size="icon" variant="ghost" onClick={() => downloadMobileInvoice(o)} title="Download Invoice">
-                          <Receipt className="h-4 w-4" />
+                          <Download className="h-4 w-4" />
                         </Button>
                       )}
                     </div>

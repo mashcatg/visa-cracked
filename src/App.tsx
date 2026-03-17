@@ -13,6 +13,7 @@ import DashboardPage from "./pages/DashboardPage";
 import InterviewRoom from "./pages/InterviewRoom";
 import InterviewReportPage from "./pages/InterviewReportPage";
 import AdminPage from "./pages/AdminPage";
+import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import PublicReportPage from "./pages/PublicReportPage";
 import PaymentResult from "./pages/PaymentResult";

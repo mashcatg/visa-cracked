@@ -151,6 +151,7 @@ export type Database = {
           created_at: string
           difficulty: string
           id: string
+          judgment_system_prompt: string | null
           vapi_assistant_id: string | null
           vapi_private_key: string | null
           vapi_public_key: string | null
@@ -160,6 +161,7 @@ export type Database = {
           created_at?: string
           difficulty: string
           id?: string
+          judgment_system_prompt?: string | null
           vapi_assistant_id?: string | null
           vapi_private_key?: string | null
           vapi_public_key?: string | null
@@ -169,6 +171,7 @@ export type Database = {
           created_at?: string
           difficulty?: string
           id?: string
+          judgment_system_prompt?: string | null
           vapi_assistant_id?: string | null
           vapi_private_key?: string | null
           vapi_public_key?: string | null
@@ -384,30 +387,63 @@ export type Database = {
           created_at: string
           credits: number
           email: string | null
+          facebook_url: string | null
           full_name: string | null
           id: string
+          instagram_url: string | null
+          linkedin_url: string | null
+          onboarding_completed: boolean
+          program_name: string | null
+          sevis_id: string | null
+          start_date: string | null
+          university_name: string | null
           updated_at: string
           user_id: string
+          visa_country: string | null
+          visa_type: string | null
+          whatsapp_number: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           credits?: number
           email?: string | null
+          facebook_url?: string | null
           full_name?: string | null
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
+          onboarding_completed?: boolean
+          program_name?: string | null
+          sevis_id?: string | null
+          start_date?: string | null
+          university_name?: string | null
           updated_at?: string
           user_id: string
+          visa_country?: string | null
+          visa_type?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           credits?: number
           email?: string | null
+          facebook_url?: string | null
           full_name?: string | null
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
+          onboarding_completed?: boolean
+          program_name?: string | null
+          sevis_id?: string | null
+          start_date?: string | null
+          university_name?: string | null
           updated_at?: string
           user_id?: string
+          visa_country?: string | null
+          visa_type?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: []
       }

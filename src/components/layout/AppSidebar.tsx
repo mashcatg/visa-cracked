@@ -378,8 +378,14 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
               </span>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/profile")} className="cursor-pointer">
+              <User className="h-3.5 w-3.5 mr-2" /> Profile Page
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/profile/edit")} className="cursor-pointer">
+              <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setEditName(profileName || ""); setEditProfileOpen(true); }} className="cursor-pointer">
-              <User className="h-3.5 w-3.5 mr-2" /> Edit Profile
+              <User className="h-3.5 w-3.5 mr-2" /> Quick Edit Name
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
               <Lock className="h-3.5 w-3.5 mr-2" /> Change Password
@@ -606,6 +612,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
 
 export default function AppSidebar(props: AppSidebarProps) {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [referralOpen, setReferralOpen] = useState(false);
   const { user, signOut } = useAuth();
@@ -759,8 +766,14 @@ export default function AppSidebar(props: AppSidebarProps) {
                 </div>
               </div>
 
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); navigate("/profile"); }}>
+                <User className="h-3.5 w-3.5 mr-2" /> Profile Page
+              </Button>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); navigate("/profile/edit"); }}>
+                <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
+              </Button>
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); setMobileEditName(mobileProfile.name || ""); setMobileEditProfileOpen(true); }}>
-                <User className="h-3.5 w-3.5 mr-2" /> Edit Profile
+                <User className="h-3.5 w-3.5 mr-2" /> Quick Edit Name
               </Button>
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); setMobileNewPassword(""); setMobileConfirmPassword(""); setMobileChangePassOpen(true); }}>
                 <Lock className="h-3.5 w-3.5 mr-2" /> Change Password

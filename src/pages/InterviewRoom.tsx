@@ -150,7 +150,19 @@ export default function InterviewRoom() {
           setConnectionQuality("poor");
         });
 
-        const call = await vapi.start(data.assistantId);
+        const call = await (vapi as any).start({
+          assistantId: data.assistantId,
+          assistantOverrides: {
+            variableValues: {
+              university: data?.variableValues?.university || "",
+              program: data?.variableValues?.program || "",
+              sevis_id: data?.variableValues?.sevis_id || "",
+              visa_country: data?.variableValues?.visa_country || "",
+              visa_type: data?.variableValues?.visa_type || "",
+              start_date: data?.variableValues?.start_date || "",
+            },
+          },
+        });
         setCallData(call);
         if (call?.id) {
           await supabase.from("interviews").update({ vapi_call_id: call.id }).eq("id", id);
@@ -274,19 +286,19 @@ export default function InterviewRoom() {
       </Dialog>
 
       {/* Main Interview Room */}
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+      <div className="fixed inset-0 bg-gradient-to-br from-primary via-primary/95 to-secondary flex flex-col">
         {/* Premium Header */}
-        <div className="relative z-20 bg-gradient-to-r from-slate-900/50 to-slate-800/50 backdrop-blur-xl border-b border-white/5 shadow-2xl">
+        <div className="relative z-20 bg-gradient-to-r from-primary/70 to-secondary/70 backdrop-blur-xl border-b border-border/40 shadow-2xl">
           <div className="flex items-center justify-between px-4 md:px-8 py-4">
             {/* Left: Branding */}
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg blur opacity-50" />
-                <div className="relative bg-slate-900 px-3 py-1.5 rounded-lg">
-                  <h1 className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">VISA CRACKED</h1>
+                <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary rounded-lg blur opacity-50" />
+                <div className="relative bg-primary px-3 py-1.5 rounded-lg">
+                  <h1 className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-accent to-secondary">VISA CRACKED</h1>
                 </div>
               </div>
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isConnected ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isConnected ? "bg-accent/20 text-accent" : "bg-secondary/20 text-secondary"}`}>
                 {isConnected ? "● Live" : "● Connecting"}
               </span>
             </div>
@@ -298,7 +310,7 @@ export default function InterviewRoom() {
                 <div className={`flex items-center gap-2 font-mono font-semibold px-3 py-1.5 rounded-lg backdrop-blur-md transition-all ${
                   remaining <= 30 
                     ? "bg-red-500/10 text-red-300 border border-red-500/30" 
-                    : "bg-slate-700/40 text-slate-300 border border-slate-600/30"
+                    : "bg-secondary/20 text-secondary border border-border/40"
                 }`}>
                   <Clock className="h-4 w-4" />
                   <span>{formatTime(remaining)}</span>
@@ -306,13 +318,13 @@ export default function InterviewRoom() {
 
                 {/* Connection Quality */}
                 <div className="flex items-center gap-2">
-                  <Wifi className="h-4 w-4 text-slate-400" />
+                  <Wifi className="h-4 w-4 text-secondary/70" />
                   <div className="flex gap-1">
                     {[0, 1, 2, 3].map((i) => (
                       <div
                         key={i}
                         className={`h-1.5 w-1 rounded-full transition-all ${
-                          connectionQuality === "good" ? "bg-emerald-400" : connectionQuality === "fair" ? "bg-amber-400" : "bg-red-400"
+                          connectionQuality === "good" ? "bg-accent" : connectionQuality === "fair" ? "bg-secondary" : "bg-red-400"
                         } ${i < (connectionQuality === "good" ? 4 : connectionQuality === "fair" ? 2 : 1) ? "opacity-100" : "opacity-30"}`}
                       />
                     ))}
@@ -322,8 +334,8 @@ export default function InterviewRoom() {
             )}
 
             {/* Right: Badge */}
-            <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
-              <CheckCheck className="h-4 w-4 text-emerald-400" />
+            <div className="hidden md:flex items-center gap-2 text-xs text-secondary/70">
+              <CheckCheck className="h-4 w-4 text-accent" />
               <span>Secure Connection</span>
             </div>
           </div>
@@ -339,25 +351,25 @@ export default function InterviewRoom() {
             /* Officer Avatar - Professional Design */
             <div className="relative z-10 flex flex-col items-center gap-4">
               {/* Animated Background Glow */}
-              <div className="absolute -inset-20 rounded-full bg-gradient-to-r from-blue-500/20 to-cyan-500/20 blur-3xl animate-pulse" />
+              <div className="absolute -inset-20 rounded-full bg-gradient-to-r from-accent/20 to-primary/20 blur-3xl animate-pulse" />
               
               {/* Avatar Container */}
               <div className="relative">
                 {/* Speaking Rings Animation */}
                 {isSpeaking === "assistant" && (
                   <>
-                    <div className="absolute inset-0 -m-8 rounded-full bg-gradient-to-r from-blue-400/20 to-cyan-400/20 animate-ping" style={{ animationDuration: "2s" }} />
-                    <div className="absolute inset-0 -m-5 rounded-full border border-blue-400/30 animate-pulse" style={{ animationDuration: "1.5s" }} />
+                    <div className="absolute inset-0 -m-8 rounded-full bg-gradient-to-r from-accent/20 to-primary/20 animate-ping" style={{ animationDuration: "2s" }} />
+                    <div className="absolute inset-0 -m-5 rounded-full border border-accent/30 animate-pulse" style={{ animationDuration: "1.5s" }} />
                   </>
                 )}
                 
                 {/* Avatar Circle */}
-                <div className={`relative ${isMobile ? "h-40 w-40" : "h-56 w-56"} rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border-2 transition-all duration-300 ${
+                <div className={`relative ${isMobile ? "h-40 w-40" : "h-56 w-56"} rounded-full bg-gradient-to-br from-primary/70 to-secondary/70 flex items-center justify-center border-2 transition-all duration-300 ${
                   isSpeaking === "assistant" 
-                    ? "border-cyan-400 shadow-lg shadow-cyan-400/30" 
-                    : "border-slate-600"
+                    ? "border-accent shadow-lg shadow-accent/30" 
+                    : "border-border"
                 }`}>
-                  <User className={`${isMobile ? "h-20 w-20" : "h-28 w-28"} text-gradient-to-r from-blue-300 to-cyan-300`} style={{ color: isSpeaking === "assistant" ? "#22d3ee" : "#93c5fd" }} />
+                  <User className={`${isMobile ? "h-20 w-20" : "h-28 w-28"}`} style={{ color: isSpeaking === "assistant" ? "hsl(var(--accent))" : "hsl(var(--secondary))" }} />
                 </div>
               </div>
 
@@ -366,7 +378,7 @@ export default function InterviewRoom() {
                 <p className="text-white font-semibold text-lg md:text-xl">
                   {isSpeaking === "assistant" ? "🎤 Listening..." : "Visa Officer"}
                 </p>
-                <p className="text-slate-400 text-xs md:text-sm mt-1">
+                <p className="text-secondary/80 text-xs md:text-sm mt-1">
                   {isConnected ? "Ready for your response" : "Connecting..."}
                 </p>
               </div>
@@ -376,29 +388,29 @@ export default function InterviewRoom() {
             <div className="w-full h-full relative">
               <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
               {/* Video Overlay Effects */}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-primary/35 to-transparent" />
             </div>
           )}
 
           {/* Picture in Picture */}
           <div
-            className={`absolute z-10 cursor-pointer transition-all hover:shadow-2xl hover:shadow-blue-500/30 ${isMobile ? "bottom-4 left-4" : "top-6 right-6"}`}
+            className={`absolute z-10 cursor-pointer transition-all hover:shadow-2xl hover:shadow-accent/30 ${isMobile ? "bottom-4 left-4" : "top-6 right-6"}`}
             onClick={() => setSwapped((s) => !s)}
           >
             {!swapped ? (
               /* User Camera PIP */
-              <div className={`relative group rounded-2xl overflow-hidden border-2 border-white/20 bg-slate-900 shadow-xl ${isMobile ? "w-24 h-32" : "w-48 h-60"}`}>
+              <div className={`relative group rounded-2xl overflow-hidden border-2 border-border/60 bg-primary shadow-xl ${isMobile ? "w-24 h-32" : "w-48 h-60"}`}>
                 <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                 {/* PIP Label */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 to-transparent p-2 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-transparent p-2 text-xs font-medium text-secondary opacity-0 group-hover:opacity-100 transition-opacity">
                   Your Camera
                 </div>
               </div>
             ) : (
               /* Officer Avatar PIP */
-              <div className={`relative group rounded-full bg-slate-700/90 backdrop-blur-md border border-slate-600 flex flex-col items-center justify-center gap-1 ${isMobile ? "h-20 w-20" : "h-28 w-28"}`}>
-                <div className={`${isMobile ? "h-10 w-10" : "h-14 w-14"} rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-2 ring-cyan-400/70 scale-110" : ""} transition-all duration-300`}>
-                  <User className={`${isMobile ? "h-5 w-5" : "h-7 w-7"} text-cyan-300`} />
+              <div className={`relative group rounded-full bg-primary/80 backdrop-blur-md border border-border flex flex-col items-center justify-center gap-1 ${isMobile ? "h-20 w-20" : "h-28 w-28"}`}>
+                <div className={`${isMobile ? "h-10 w-10" : "h-14 w-14"} rounded-full bg-gradient-to-br from-primary/80 to-secondary/70 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-2 ring-accent/70 scale-110" : ""} transition-all duration-300`}>
+                  <User className={`${isMobile ? "h-5 w-5" : "h-7 w-7"} text-accent`} />
                 </div>
                 {/* PIP Label */}
                 <div className="text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
@@ -413,10 +425,10 @@ export default function InterviewRoom() {
             <div className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-10 transition-all ${isMobile ? "w-[90%]" : "max-w-2xl w-full"}`}>
               <div className={`backdrop-blur-xl rounded-2xl px-6 py-4 border transition-all ${
                 lastTranscript.role === "You"
-                  ? "bg-blue-500/20 border-blue-400/30"
-                  : "bg-cyan-500/20 border-cyan-400/30"
+                  ? "bg-primary/25 border-primary/40"
+                  : "bg-accent/20 border-accent/30"
               }`}>
-                <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${lastTranscript.role === "You" ? "text-blue-300" : "text-cyan-300"}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${lastTranscript.role === "You" ? "text-secondary" : "text-accent"}`}>
                   {lastTranscript.role}
                 </p>
                 <p className="text-white/90 text-sm leading-relaxed">{lastTranscript.text}</p>
@@ -427,29 +439,29 @@ export default function InterviewRoom() {
           {/* Listening State */}
           {subtitlesOn && isConnected && !lastTranscript && (
             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
-              <div className="flex items-center gap-2 bg-slate-700/40 backdrop-blur-lg rounded-full px-4 py-2 border border-slate-600/30">
+              <div className="flex items-center gap-2 bg-primary/30 backdrop-blur-lg rounded-full px-4 py-2 border border-border/40">
                 <div className="flex gap-1">
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="h-1.5 w-1.5 bg-cyan-400 rounded-full animate-pulse"
+                      className="h-1.5 w-1.5 bg-accent rounded-full animate-pulse"
                       style={{ animationDelay: `${i * 0.1}s` }}
                     />
                   ))}
                 </div>
-                <p className="text-slate-300 text-xs font-medium">Listening...</p>
+                <p className="text-secondary text-xs font-medium">Listening...</p>
               </div>
             </div>
           )}
 
           {/* Connecting Overlay - Premium */}
           {isLoading && (
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-md flex items-center justify-center z-30">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/80 to-secondary/80 backdrop-blur-md flex items-center justify-center z-30">
               <div className="text-center space-y-6">
                 {/* Animated Loader */}
                 <div className="relative flex justify-center">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full blur-2xl opacity-30 animate-pulse" />
-                  <Loader2 className="h-16 w-16 animate-spin text-cyan-400 relative z-10" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary rounded-full blur-2xl opacity-30 animate-pulse" />
+                  <Loader2 className="h-16 w-16 animate-spin text-accent relative z-10" />
                 </div>
                 
                 {/* Status Message */}
@@ -457,7 +469,7 @@ export default function InterviewRoom() {
                   <p className="text-white font-bold text-xl transition-all duration-500">
                     {CONNECTING_MESSAGES[connectingMsgIdx]}
                   </p>
-                  <p className="text-slate-400 text-sm">Please allow camera & microphone access</p>
+                  <p className="text-secondary/80 text-sm">Please allow camera & microphone access</p>
                 </div>
 
                 {/* Progress Indicator */}
@@ -465,7 +477,7 @@ export default function InterviewRoom() {
                   {CONNECTING_MESSAGES.map((_, i) => (
                     <div
                       key={i}
-                      className={`rounded-full transition-all ${i === connectingMsgIdx ? "bg-gradient-to-r from-blue-400 to-cyan-400 h-2 w-8" : "bg-slate-600 h-2 w-2"}`}
+                      className={`rounded-full transition-all ${i === connectingMsgIdx ? "bg-gradient-to-r from-accent to-primary h-2 w-8" : "bg-secondary/50 h-2 w-2"}`}
                     />
                   ))}
                 </div>
@@ -475,7 +487,7 @@ export default function InterviewRoom() {
         </div>
 
         {/* Premium Controls Bar */}
-        <div className="relative z-20 bg-gradient-to-r from-slate-900/50 to-slate-800/50 backdrop-blur-xl border-t border-white/5 shadow-2xl">
+        <div className="relative z-20 bg-gradient-to-r from-primary/70 to-secondary/70 backdrop-blur-xl border-t border-border/40 shadow-2xl">
           <div className="flex items-center justify-center gap-3 px-4 py-6">
             {/* Microphone Control */}
             <button
@@ -486,13 +498,13 @@ export default function InterviewRoom() {
               }}
               className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                 micOn 
-                  ? "bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white border border-slate-600" 
+                  ? "bg-gradient-to-br from-primary/70 to-secondary/70 hover:from-primary/80 hover:to-secondary/80 text-secondary border border-border" 
                   : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white border border-red-500"
               }`}
               title={micOn ? "Mute Microphone" : "Unmute Microphone"}
             >
               {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-primary text-secondary text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                 {micOn ? "Your Mic ON" : "Your Mic OFF"}
               </span>
             </button>
@@ -504,12 +516,12 @@ export default function InterviewRoom() {
                 className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                   assistantMuted 
                     ? "bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white border border-orange-500" 
-                    : "bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white border border-slate-600"
+                    : "bg-gradient-to-br from-primary/70 to-secondary/70 hover:from-primary/80 hover:to-secondary/80 text-secondary border border-border"
                 }`}
                 title={assistantMuted ? "Unmute Assistant" : "Mute Assistant"}
               >
                 {assistantMuted ? <Volume className="h-5 w-5 translate-x-0.5" /> : <Volume2 className="h-5 w-5" />}
-                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-primary text-secondary text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                   {assistantMuted ? "Assistant PAUSED" : "Pause Assistant"}
                 </span>
               </button>
@@ -521,18 +533,18 @@ export default function InterviewRoom() {
               className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                 subtitlesOn 
                   ? "bg-gradient-to-br from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white border border-violet-500" 
-                  : "bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-slate-400 border border-slate-600"
+                  : "bg-gradient-to-br from-primary/70 to-secondary/70 hover:from-primary/80 hover:to-secondary/80 text-secondary/60 border border-border"
               }`}
               title={subtitlesOn ? "Hide Subtitles" : "Show Subtitles"}
             >
               <Subtitles className="h-5 w-5" />
-              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-primary text-secondary text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                 {subtitlesOn ? "Captions ON" : "Captions OFF"}
               </span>
             </button>
 
             {/* End Call - Primary Action */}
-            <div className="w-0.5 h-8 bg-gradient-to-b from-transparent via-slate-600 to-transparent mx-2" />
+            <div className="w-0.5 h-8 bg-gradient-to-b from-transparent via-border to-transparent mx-2" />
             
             <Button
               className="relative h-12 px-8 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-full shadow-lg shadow-red-500/30 hover:shadow-red-500/50 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -23,6 +23,8 @@ interface PlanDef {
   credits: number;
   bdt: number;
   usd: number;
+  originalBdt?: number;
+  originalUsd?: number;
   badge: string | null;
   popular: boolean;
   features: string[];
@@ -69,7 +71,9 @@ const plans: PlanDef[] = [
     credits: 600,
     bdt: 5400,
     usd: 54,
-    badge: "🔥 40% OFF",
+    originalBdt: 9000,
+    originalUsd: 90,
+    badge: "40% OFF",
     popular: false,
     features: ["5 Human Interviews", "10 AI Mock Tests", "Document Fill-up Guidance (DS-160, Sevis, CGI Portal)", "Expert Feedback", "Personalized Tips", "Lifetime Access"],
   },
@@ -100,8 +104,9 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
     fetch("https://ipapi.co/json/")
       .then(r => r.json())
       .then(data => {
-        if (!data?.country_code) return;
-        setCurrency(data.country_code === "BD" ? "BDT" : "USD");
+        const code = typeof data?.country_code === "string" ? data.country_code.toUpperCase() : "";
+        if (!code) return;
+        setCurrency(code === "BD" ? "BDT" : "USD");
       })
       .catch(() => {}); // Default BDT on error
   }, []);
@@ -162,13 +167,13 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
       {/* Currency Switcher - Switch */}
       <div className="flex items-center justify-between gap-4 bg-muted/30 rounded-lg p-3">
         <div className="flex items-center justify-center gap-3 flex-1">
-          <span className={cn("text-sm font-medium transition-colors", currency === "BDT" ? "text-foreground" : "text-muted-foreground")}>BDT</span>
+          <span className={cn("text-sm font-medium transition-colors", currency === "BDT" ? "text-primary" : "text-muted-foreground")}>BDT</span>
           <Switch 
             checked={currency === "USD"} 
             onCheckedChange={(checked) => setCurrency(checked ? "USD" : "BDT")}
             className="data-[state=checked]:bg-accent"
           />
-          <span className={cn("text-sm font-medium transition-colors", currency === "USD" ? "text-foreground" : "text-muted-foreground")}>USD</span>
+          <span className={cn("text-sm font-medium transition-colors", currency === "USD" ? "text-primary" : "text-muted-foreground")}>USD</span>
         </div>
       </div>
 
@@ -213,10 +218,11 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => {
           const basePrice = currency === "USD" ? plan.usd : plan.bdt;
+          const originalPrice = currency === "USD" ? (plan.originalUsd ?? plan.usd) : (plan.originalBdt ?? plan.bdt);
           const finalPrice = appliedCoupon
             ? applyDiscount(basePrice, appliedCoupon.discount_type, appliedCoupon.discount_type === "fixed" && currency === "USD" ? Math.round(appliedCoupon.discount_amount * (plan.usd / plan.bdt)) : appliedCoupon.discount_amount)
             : basePrice;
-          const hasDiscount = appliedCoupon && finalPrice < basePrice;
+          const hasDiscount = originalPrice > finalPrice;
 
           return (
             <div
@@ -242,9 +248,9 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
               <p className="text-xs text-muted-foreground mb-4">{plan.subtitle}</p>
               <div className="mb-1">
                 {hasDiscount && (
-                  <span className="text-xl line-through text-muted-foreground mr-2">{currencySymbol}{formatPrice(basePrice)}</span>
+                  <span className="text-xl line-through text-muted-foreground mr-2">{currencySymbol}{formatPrice(originalPrice)}</span>
                 )}
-                <span className="text-3xl font-extrabold tracking-tight">{currencySymbol}{formatPrice(finalPrice)}</span>
+                <span className={cn("text-3xl font-extrabold tracking-tight", currency === "USD" ? "text-primary" : "text-foreground")}>{currencySymbol}{formatPrice(finalPrice)}</span>
               </div>
               <p className="text-xs text-muted-foreground mb-5">/pack</p>
               <ul className="space-y-2.5 flex-1 mb-6">

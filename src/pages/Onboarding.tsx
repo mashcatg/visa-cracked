@@ -24,6 +24,8 @@ interface FormData {
   start_date: string;
 }
 
+const borderlessInputClass = "border-0 shadow-none focus-visible:ring-1 focus-visible:ring-accent bg-muted/30";
+
 export default function Onboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -158,6 +160,7 @@ export default function Onboarding() {
                   WhatsApp Number <span className="text-destructive">*</span>
                 </Label>
                 <Input
+                  className={borderlessInputClass}
                   value={form.whatsapp_number}
                   onChange={(e) => update("whatsapp_number", e.target.value)}
                   placeholder="+8801XXXXXXXXX"
@@ -166,6 +169,7 @@ export default function Onboarding() {
               <div className="space-y-2">
                 <Label>Facebook URL</Label>
                 <Input
+                  className={borderlessInputClass}
                   value={form.facebook_url}
                   onChange={(e) => update("facebook_url", e.target.value)}
                   placeholder="https://facebook.com/your.profile"
@@ -174,6 +178,7 @@ export default function Onboarding() {
               <div className="space-y-2">
                 <Label>LinkedIn URL</Label>
                 <Input
+                  className={borderlessInputClass}
                   value={form.linkedin_url}
                   onChange={(e) => update("linkedin_url", e.target.value)}
                   placeholder="https://linkedin.com/in/your-profile"
@@ -182,6 +187,7 @@ export default function Onboarding() {
               <div className="space-y-2">
                 <Label>Instagram URL</Label>
                 <Input
+                  className={borderlessInputClass}
                   value={form.instagram_url}
                   onChange={(e) => update("instagram_url", e.target.value)}
                   placeholder="https://instagram.com/your.handle"
@@ -209,7 +215,7 @@ export default function Onboarding() {
                 Upload a document (I-20, Offer Letter, etc.) to auto-fill, or enter manually.
               </p>
 
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center">
+              <div className="rounded-xl p-6 text-center bg-muted/30">
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
@@ -243,29 +249,29 @@ export default function Onboarding() {
               <div className="grid gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">University Name</Label>
-                  <Input value={form.university_name} onChange={(e) => update("university_name", e.target.value)} placeholder="e.g. Stanford University" />
+                  <Input className={borderlessInputClass} value={form.university_name} onChange={(e) => update("university_name", e.target.value)} placeholder="e.g. Stanford University" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Program Name</Label>
-                  <Input value={form.program_name} onChange={(e) => update("program_name", e.target.value)} placeholder="e.g. MS Computer Science" />
+                  <Input className={borderlessInputClass} value={form.program_name} onChange={(e) => update("program_name", e.target.value)} placeholder="e.g. MS Computer Science" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">SEVIS ID</Label>
-                  <Input value={form.sevis_id} onChange={(e) => update("sevis_id", e.target.value)} placeholder="N00XXXXXXXXX" />
+                  <Input className={borderlessInputClass} value={form.sevis_id} onChange={(e) => update("sevis_id", e.target.value)} placeholder="N00XXXXXXXXX" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Visa Country</Label>
-                    <Input value={form.visa_country} onChange={(e) => update("visa_country", e.target.value)} placeholder="e.g. USA" />
+                    <Input className={borderlessInputClass} value={form.visa_country} onChange={(e) => update("visa_country", e.target.value)} placeholder="e.g. USA" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Visa Type</Label>
-                    <Input value={form.visa_type} onChange={(e) => update("visa_type", e.target.value)} placeholder="e.g. F1" />
+                    <Input className={borderlessInputClass} value={form.visa_type} onChange={(e) => update("visa_type", e.target.value)} placeholder="e.g. F1" />
                   </div>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Program Start Date</Label>
-                  <Input type="date" value={form.start_date} onChange={(e) => update("start_date", e.target.value)} />
+                  <Input className={borderlessInputClass} type="date" value={form.start_date} onChange={(e) => update("start_date", e.target.value)} />
                 </div>
               </div>
 

@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("university_name, program_name, sevis_id, visa_country, visa_type, start_date")
+      .eq("user_id", user.id)
+      .single();
+
     let vapiPublicKey: string | null = null;
     let assistantId: string | null = null;
 
@@ -98,8 +104,17 @@ Deno.serve(async (req) => {
       .update({ status: "in_progress" })
       .eq("id", interviewId);
 
+    const variableValues = {
+      university: profile?.university_name || "",
+      program: profile?.program_name || "",
+      sevis_id: profile?.sevis_id || "",
+      visa_country: profile?.visa_country || "",
+      visa_type: profile?.visa_type || "",
+      start_date: profile?.start_date || "",
+    };
+
     return new Response(
-      JSON.stringify({ publicKey: vapiPublicKey, assistantId }),
+      JSON.stringify({ publicKey: vapiPublicKey, assistantId, variableValues }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -66,10 +66,18 @@ export default function CustomAudioPlayer({ src, className }: Props) {
   const toggleMute = useCallback(() => {
     const a = audioRef.current;
     if (!a) return;
-    const next = !muted;
-    a.muted = next;
-    setMuted(next);
-  }, [muted]);
+    if (muted) {
+      // Unmute: restore to previous volume
+      a.muted = false;
+      a.volume = volume || 0.5;
+      setMuted(false);
+    } else {
+      // Mute: set volume to 0
+      a.muted = true;
+      a.volume = 0;
+      setMuted(true);
+    }
+  }, [muted, volume]);
 
   return (
     <Card className={className}>

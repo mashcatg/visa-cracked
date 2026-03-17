@@ -3,8 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { PhoneOff, Loader2, Clock, Wifi, User, Mic, MicOff, Subtitles } from "lucide-react";
+import { PhoneOff, Loader2, Clock, Wifi, User, Mic, MicOff, Subtitles, Headphones, Volume2, Lightbulb, CheckCircle2, Volume, AlertCircle, CheckCheck } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const MAX_DURATION = 207; // 3:27
@@ -46,8 +47,11 @@ export default function InterviewRoom() {
   const [connectingMsgIdx, setConnectingMsgIdx] = useState(0);
   const [swapped, setSwapped] = useState(false);
   const [micOn, setMicOn] = useState(true);
+  const [assistantMuted, setAssistantMuted] = useState(false);
   const [subtitlesOn, setSubtitlesOn] = useState(true);
   const [connectingCycled, setConnectingCycled] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(true);
+  const [callData, setCallData] = useState<any>(null);
 
   // Rotating connecting messages — lock on last after one cycle
   useEffect(() => {
@@ -147,6 +151,7 @@ export default function InterviewRoom() {
         });
 
         const call = await vapi.start(data.assistantId);
+        setCallData(call);
         if (call?.id) {
           await supabase.from("interviews").update({ vapi_call_id: call.id }).eq("id", id);
         }
@@ -184,152 +189,362 @@ export default function InterviewRoom() {
     }
   }, [id, navigate]);
 
+  const toggleAssistantMute = useCallback(async () => {
+    if (!callData?.monitor?.controlUrl) {
+      toast.error("Unable to control assistant");
+      return;
+    }
+
+    try {
+      const newMutedState = !assistantMuted;
+      const response = await fetch(callData.monitor.controlUrl, {
+        method: "POST",
+        body: JSON.stringify({
+          action: newMutedState ? "mute-assistant-mic" : "unmute-assistant-mic",
+        }),
+      });
+
+      if (response.ok) {
+        setAssistantMuted(newMutedState);
+        toast.info(newMutedState ? "Assistant muted" : "Assistant unmuted");
+      } else {
+        toast.error("Failed to control assistant");
+      }
+    } catch (err) {
+      console.error("Mute error:", err);
+      toast.error("Error controlling assistant");
+    }
+  }, [callData, assistantMuted]);
+
   const remaining = MAX_DURATION - elapsed;
   const qualityColor = connectionQuality === "good" ? "bg-green-500" : connectionQuality === "fair" ? "bg-amber-500" : "bg-red-500";
 
   return (
-    <div className="fixed inset-0 bg-[#003B36] flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[#002A26]/80 backdrop-blur-sm border-b border-white/5 z-10">
-        <h1 className="text-sm font-semibold text-white/80">Visa Cracked — Mock Test</h1>
-        <div className="flex items-center gap-4">
-          {isConnected && (
-            <>
-              <div className={`flex items-center gap-2 text-sm font-mono ${remaining <= 30 ? "text-red-400" : "text-white/70"}`}>
-                <Clock className="h-3.5 w-3.5" />
-                <span>{formatTime(remaining)}</span>
+    <>
+      {/* Pre-Interview Setup Guide */}
+      <Dialog open={showSetupGuide} onOpenChange={setShowSetupGuide}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Prepare for Your Interview</DialogTitle>
+            <DialogDescription className="text-center mt-2">Make sure you're ready to start</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <Headphones className="h-5 w-5 text-accent mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Use Headphones</p>
+                  <p className="text-xs text-muted-foreground">Headphones are recommended for clear audio and better connection quality</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Wifi className="h-3.5 w-3.5 text-white/50" />
-                <div className={`h-2 w-2 rounded-full ${qualityColor}`} />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
 
-      {/* Main area */}
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {/* Main view: Bot avatar by default, user video if swapped */}
-        {!swapped ? (
-          /* Bot avatar - MAIN */
-          <div className="w-full h-full bg-gradient-to-br from-[#002A26] via-[#003B36] to-[#002A26] flex items-center justify-center">
-            <div className="relative">
-              {/* Pulsing rings when speaking */}
-              {isSpeaking === "assistant" && (
-                <>
-                  <div className="absolute inset-0 -m-8 rounded-full bg-accent/10 animate-ping" style={{ animationDuration: "2s" }} />
-                  <div className="absolute inset-0 -m-4 rounded-full bg-accent/5 animate-pulse" />
-                </>
-              )}
-              <div className={`${isMobile ? "h-32 w-32" : "h-44 w-44"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center border-2 ${isSpeaking === "assistant" ? "border-accent/60" : "border-white/10"} transition-all duration-300`}>
-                <User className={`${isMobile ? "h-16 w-16" : "h-20 w-20"} text-accent/70`} />
+              <div className="flex items-start gap-3">
+                <Volume2 className="h-5 w-5 text-accent mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Quiet Environment</p>
+                  <p className="text-xs text-muted-foreground">Find a quiet place without background noise or distractions</p>
+                </div>
               </div>
-              <p className="text-center text-white/50 text-xs mt-4 font-medium">
-                {isSpeaking === "assistant" ? "Speaking..." : "Visa Officer"}
-              </p>
+
+              <div className="flex items-start gap-3">
+                <Lightbulb className="h-5 w-5 text-accent mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Good Lighting</p>
+                  <p className="text-xs text-muted-foreground">Ensure proper lighting so your face is clearly visible</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-accent mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm">Check Camera & Microphone</p>
+                  <p className="text-xs text-muted-foreground">Test your camera and microphone before starting the interview</p>
+                </div>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
+              onClick={() => setShowSetupGuide(false)}
+            >
+              I'm Ready
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Interview Room */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+        {/* Premium Header */}
+        <div className="relative z-20 bg-gradient-to-r from-slate-900/50 to-slate-800/50 backdrop-blur-xl border-b border-white/5 shadow-2xl">
+          <div className="flex items-center justify-between px-4 md:px-8 py-4">
+            {/* Left: Branding */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg blur opacity-50" />
+                <div className="relative bg-slate-900 px-3 py-1.5 rounded-lg">
+                  <h1 className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">VISA CRACKED</h1>
+                </div>
+              </div>
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isConnected ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+                {isConnected ? "● Live" : "● Connecting"}
+              </span>
+            </div>
+
+            {/* Center: Status Info */}
+            {isConnected && (
+              <div className="flex items-center gap-6 text-xs md:text-sm">
+                {/* Timer */}
+                <div className={`flex items-center gap-2 font-mono font-semibold px-3 py-1.5 rounded-lg backdrop-blur-md transition-all ${
+                  remaining <= 30 
+                    ? "bg-red-500/10 text-red-300 border border-red-500/30" 
+                    : "bg-slate-700/40 text-slate-300 border border-slate-600/30"
+                }`}>
+                  <Clock className="h-4 w-4" />
+                  <span>{formatTime(remaining)}</span>
+                </div>
+
+                {/* Connection Quality */}
+                <div className="flex items-center gap-2">
+                  <Wifi className="h-4 w-4 text-slate-400" />
+                  <div className="flex gap-1">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1.5 w-1 rounded-full transition-all ${
+                          connectionQuality === "good" ? "bg-emerald-400" : connectionQuality === "fair" ? "bg-amber-400" : "bg-red-400"
+                        } ${i < (connectionQuality === "good" ? 4 : connectionQuality === "fair" ? 2 : 1) ? "opacity-100" : "opacity-30"}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Right: Badge */}
+            <div className="hidden md:flex items-center gap-2 text-xs text-slate-400">
+              <CheckCheck className="h-4 w-4 text-emerald-400" />
+              <span>Secure Connection</span>
             </div>
           </div>
-        ) : (
-          /* User video - MAIN (when swapped) */
-          <div className="w-full h-full relative">
-            <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-          </div>
-        )}
+        </div>
 
-        {/* PIP: User camera (top-right) or Bot avatar (top-right if swapped) */}
-        <div
-          className={`absolute ${isMobile ? "top-3 right-3" : "top-4 right-4"} z-10 cursor-pointer`}
-          onClick={() => setSwapped((s) => !s)}
-        >
+        {/* Main Content Area */}
+        <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+          {/* Background Grid Effect */}
+          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(100,200,255,0.05)_1px,transparent_1px)] bg-[length:40px_40px] opacity-20" />
+          
+          {/* Main Display */}
           {!swapped ? (
-            /* User camera PIP */
-            <div className={`${isMobile ? "w-[100px] h-[140px]" : "w-[160px] h-[200px]"} rounded-xl overflow-hidden border-2 border-white/20 bg-[#002A26]`}>
-              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+            /* Officer Avatar - Professional Design */
+            <div className="relative z-10 flex flex-col items-center gap-4">
+              {/* Animated Background Glow */}
+              <div className="absolute -inset-20 rounded-full bg-gradient-to-r from-blue-500/20 to-cyan-500/20 blur-3xl animate-pulse" />
+              
+              {/* Avatar Container */}
+              <div className="relative">
+                {/* Speaking Rings Animation */}
+                {isSpeaking === "assistant" && (
+                  <>
+                    <div className="absolute inset-0 -m-8 rounded-full bg-gradient-to-r from-blue-400/20 to-cyan-400/20 animate-ping" style={{ animationDuration: "2s" }} />
+                    <div className="absolute inset-0 -m-5 rounded-full border border-blue-400/30 animate-pulse" style={{ animationDuration: "1.5s" }} />
+                  </>
+                )}
+                
+                {/* Avatar Circle */}
+                <div className={`relative ${isMobile ? "h-40 w-40" : "h-56 w-56"} rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border-2 transition-all duration-300 ${
+                  isSpeaking === "assistant" 
+                    ? "border-cyan-400 shadow-lg shadow-cyan-400/30" 
+                    : "border-slate-600"
+                }`}>
+                  <User className={`${isMobile ? "h-20 w-20" : "h-28 w-28"} text-gradient-to-r from-blue-300 to-cyan-300`} style={{ color: isSpeaking === "assistant" ? "#22d3ee" : "#93c5fd" }} />
+                </div>
+              </div>
+
+              {/* Status Label */}
+              <div className="relative z-10 text-center">
+                <p className="text-white font-semibold text-lg md:text-xl">
+                  {isSpeaking === "assistant" ? "🎤 Listening..." : "Visa Officer"}
+                </p>
+                <p className="text-slate-400 text-xs md:text-sm mt-1">
+                  {isConnected ? "Ready for your response" : "Connecting..."}
+                </p>
+              </div>
             </div>
           ) : (
-            /* Bot avatar PIP */
-            <div className={`${isMobile ? "w-20 h-20" : "w-28 h-28"} rounded-full bg-[#002A26]/90 backdrop-blur-md border ${isSpeaking === "assistant" ? "border-accent/60" : "border-white/10"} flex flex-col items-center justify-center gap-1.5 transition-all duration-300`}>
-              <div className={`${isMobile ? "h-10 w-10" : "h-12 w-12"} rounded-full bg-gradient-to-br from-accent/30 to-accent/10 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-2 ring-accent/40 scale-110" : ""} transition-all duration-300`}>
-                <User className={`${isMobile ? "h-5 w-5" : "h-6 w-6"} text-accent/80`} />
+            /* User Camera - Main View */
+            <div className="w-full h-full relative">
+              <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+              {/* Video Overlay Effects */}
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent" />
+            </div>
+          )}
+
+          {/* Picture in Picture */}
+          <div
+            className={`absolute z-10 cursor-pointer transition-all hover:shadow-2xl hover:shadow-blue-500/30 ${isMobile ? "bottom-4 left-4" : "top-6 right-6"}`}
+            onClick={() => setSwapped((s) => !s)}
+          >
+            {!swapped ? (
+              /* User Camera PIP */
+              <div className={`relative group rounded-2xl overflow-hidden border-2 border-white/20 bg-slate-900 shadow-xl ${isMobile ? "w-24 h-32" : "w-48 h-60"}`}>
+                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                {/* PIP Label */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 to-transparent p-2 text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                  Your Camera
+                </div>
               </div>
-              <span className="text-white/70 text-[10px] font-medium">
-                {isSpeaking === "assistant" ? "Speaking..." : "Officer"}
-              </span>
+            ) : (
+              /* Officer Avatar PIP */
+              <div className={`relative group rounded-full bg-slate-700/90 backdrop-blur-md border border-slate-600 flex flex-col items-center justify-center gap-1 ${isMobile ? "h-20 w-20" : "h-28 w-28"}`}>
+                <div className={`${isMobile ? "h-10 w-10" : "h-14 w-14"} rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center ${isSpeaking === "assistant" ? "ring-2 ring-cyan-400/70 scale-110" : ""} transition-all duration-300`}>
+                  <User className={`${isMobile ? "h-5 w-5" : "h-7 w-7"} text-cyan-300`} />
+                </div>
+                {/* PIP Label */}
+                <div className="text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                  OFFICER
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Transcript Display - Enhanced */}
+          {subtitlesOn && isConnected && lastTranscript && (
+            <div className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-10 transition-all ${isMobile ? "w-[90%]" : "max-w-2xl w-full"}`}>
+              <div className={`backdrop-blur-xl rounded-2xl px-6 py-4 border transition-all ${
+                lastTranscript.role === "You"
+                  ? "bg-blue-500/20 border-blue-400/30"
+                  : "bg-cyan-500/20 border-cyan-400/30"
+              }`}>
+                <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${lastTranscript.role === "You" ? "text-blue-300" : "text-cyan-300"}`}>
+                  {lastTranscript.role}
+                </p>
+                <p className="text-white/90 text-sm leading-relaxed">{lastTranscript.text}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Listening State */}
+          {subtitlesOn && isConnected && !lastTranscript && (
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
+              <div className="flex items-center gap-2 bg-slate-700/40 backdrop-blur-lg rounded-full px-4 py-2 border border-slate-600/30">
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 w-1.5 bg-cyan-400 rounded-full animate-pulse"
+                      style={{ animationDelay: `${i * 0.1}s` }}
+                    />
+                  ))}
+                </div>
+                <p className="text-slate-300 text-xs font-medium">Listening...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Connecting Overlay - Premium */}
+          {isLoading && (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-slate-800/80 backdrop-blur-md flex items-center justify-center z-30">
+              <div className="text-center space-y-6">
+                {/* Animated Loader */}
+                <div className="relative flex justify-center">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full blur-2xl opacity-30 animate-pulse" />
+                  <Loader2 className="h-16 w-16 animate-spin text-cyan-400 relative z-10" />
+                </div>
+                
+                {/* Status Message */}
+                <div className="space-y-2">
+                  <p className="text-white font-bold text-xl transition-all duration-500">
+                    {CONNECTING_MESSAGES[connectingMsgIdx]}
+                  </p>
+                  <p className="text-slate-400 text-sm">Please allow camera & microphone access</p>
+                </div>
+
+                {/* Progress Indicator */}
+                <div className="flex items-center justify-center gap-2">
+                  {CONNECTING_MESSAGES.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`rounded-full transition-all ${i === connectingMsgIdx ? "bg-gradient-to-r from-blue-400 to-cyan-400 h-2 w-8" : "bg-slate-600 h-2 w-2"}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Connecting overlay */}
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#002A26]/90 backdrop-blur-md z-20">
-            <div className="text-center space-y-4">
-              <div className="relative">
-                <div className="absolute inset-0 -m-6 rounded-full bg-accent/10 blur-3xl animate-pulse" />
-                <Loader2 className="h-12 w-12 animate-spin mx-auto text-accent relative z-10" />
-              </div>
-              <div>
-                <p className="text-white font-semibold text-lg transition-all duration-500 min-h-[28px] shimmer-text-light">
-                  {CONNECTING_MESSAGES[connectingMsgIdx]}
-                </p>
-                <p className="text-xs text-white/40 mt-2">Please allow camera & microphone access</p>
-              </div>
-              <div className="flex items-center justify-center gap-1.5 mt-2">
-                {CONNECTING_MESSAGES.map((_, i) => (
-                  <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === connectingMsgIdx ? "bg-accent w-4" : "bg-white/20 w-1.5"}`} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Single-line transcript bar */}
-        {subtitlesOn && isConnected && lastTranscript && (
-          <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 ${isMobile ? "w-[88%]" : "max-w-sm w-full"} z-10`}>
-            <div className="bg-black/50 backdrop-blur-lg rounded-full px-4 py-1.5 flex items-center gap-1.5 overflow-hidden">
-              <span className={`text-[10px] font-bold uppercase shrink-0 ${lastTranscript.role === "You" ? "text-accent" : "text-white/40"}`}>
-                {lastTranscript.role}
+        {/* Premium Controls Bar */}
+        <div className="relative z-20 bg-gradient-to-r from-slate-900/50 to-slate-800/50 backdrop-blur-xl border-t border-white/5 shadow-2xl">
+          <div className="flex items-center justify-center gap-3 px-4 py-6">
+            {/* Microphone Control */}
+            <button
+              onClick={() => {
+                const newState = !micOn;
+                setMicOn(newState);
+                streamRef.current?.getAudioTracks().forEach((t) => { t.enabled = newState; });
+              }}
+              className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
+                micOn 
+                  ? "bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white border border-slate-600" 
+                  : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white border border-red-500"
+              }`}
+              title={micOn ? "Mute Microphone" : "Unmute Microphone"}
+            >
+              {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                {micOn ? "Your Mic ON" : "Your Mic OFF"}
               </span>
-              <span className="text-white/90 text-xs truncate shimmer-text-light">{lastTranscript.text}</span>
-            </div>
-          </div>
-        )}
-        {subtitlesOn && isConnected && !lastTranscript && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-            <div className="bg-black/40 backdrop-blur-lg rounded-full px-3 py-1.5">
-              <p className="text-white/30 text-[10px]">Listening...</p>
-            </div>
-          </div>
-        )}
-      </div>
+            </button>
 
-      {/* Controls bar */}
-      <div className="flex items-center justify-center gap-3 py-4 md:py-5 bg-[#002A26]/80 backdrop-blur-sm border-t border-white/5">
-        <button
-          onClick={() => {
-            const newState = !micOn;
-            setMicOn(newState);
-            streamRef.current?.getAudioTracks().forEach((t) => { t.enabled = newState; });
-          }}
-          className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500/80 hover:bg-red-500 text-white"}`}
-        >
-          {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-        </button>
-        <button
-          onClick={() => setSubtitlesOn((s) => !s)}
-          className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${subtitlesOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-white/5 text-white/40"}`}
-        >
-          <Subtitles className="h-4 w-4" />
-        </button>
-        <Button
-          className="rounded-full h-12 px-6 md:px-8 bg-red-600 hover:bg-red-700 text-white font-semibold"
-          onClick={() => vapiRef.current?.stop()}
-          disabled={!isConnected}
-        >
-          <PhoneOff className="h-5 w-5 mr-2" />
-          {isMobile ? "End" : "End Mock Test"}
-        </Button>
+            {/* Assistant Mute Control */}
+            {isConnected && (
+              <button
+                onClick={toggleAssistantMute}
+                className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
+                  assistantMuted 
+                    ? "bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white border border-orange-500" 
+                    : "bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white border border-slate-600"
+                }`}
+                title={assistantMuted ? "Unmute Assistant" : "Mute Assistant"}
+              >
+                {assistantMuted ? <Volume className="h-5 w-5 translate-x-0.5" /> : <Volume2 className="h-5 w-5" />}
+                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                  {assistantMuted ? "Assistant PAUSED" : "Pause Assistant"}
+                </span>
+              </button>
+            )}
+
+            {/* Subtitles Control */}
+            <button
+              onClick={() => setSubtitlesOn((s) => !s)}
+              className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
+                subtitlesOn 
+                  ? "bg-gradient-to-br from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white border border-violet-500" 
+                  : "bg-gradient-to-br from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-slate-400 border border-slate-600"
+              }`}
+              title={subtitlesOn ? "Hide Subtitles" : "Show Subtitles"}
+            >
+              <Subtitles className="h-5 w-5" />
+              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                {subtitlesOn ? "Captions ON" : "Captions OFF"}
+              </span>
+            </button>
+
+            {/* End Call - Primary Action */}
+            <div className="w-0.5 h-8 bg-gradient-to-b from-transparent via-slate-600 to-transparent mx-2" />
+            
+            <Button
+              className="relative h-12 px-8 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-full shadow-lg shadow-red-500/30 hover:shadow-red-500/50 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => vapiRef.current?.stop()}
+              disabled={!isConnected}
+            >
+              <PhoneOff className="h-5 w-5 mr-2" />
+              {isMobile ? "End" : "End Mock Test"}
+            </Button>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -62,6 +62,17 @@ const plans: PlanDef[] = [
     popular: false,
     features: ["400 Credits", "AI-Powered Analysis", "Detailed Score Reports", "24/7 Support"],
   },
+  {
+    name: "Ultimate",
+    subtitle: "Complete Interview Mastery",
+    mocks: 15,
+    credits: 600,
+    bdt: 9000,
+    usd: 90,
+    badge: "Premium Package",
+    popular: false,
+    features: ["5 Human Interviews", "10 AI Mock Tests", "Document Fill-up Guidance (DS-160, Sevis, CGI Portal)", "Expert Feedback", "Personalized Tips", "Lifetime Access"],
+  },
 ];
 
 function formatPrice(amount: number) {

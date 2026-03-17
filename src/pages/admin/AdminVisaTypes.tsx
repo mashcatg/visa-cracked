@@ -275,6 +275,15 @@ export default function AdminVisaTypes() {
                       placeholder="sk_..."
                     />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Judgment System Prompt</Label>
+                    <Textarea
+                      value={mode.judgment_system_prompt || ""}
+                      onChange={(e) => updateMode(mode.difficulty, "judgment_system_prompt", e.target.value)}
+                      placeholder="Custom system prompt for AI analysis of this difficulty level... Leave empty to use default."
+                      className="min-h-[80px] text-xs"
+                    />
+                  </div>
                 </div>
                 <Button
                   size="sm"

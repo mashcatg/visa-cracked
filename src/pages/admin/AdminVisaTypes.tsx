@@ -123,6 +123,7 @@ export default function AdminVisaTypes() {
       vapi_assistant_id: mode.vapi_assistant_id || null,
       vapi_public_key: mode.vapi_public_key || null,
       vapi_private_key: mode.vapi_private_key || null,
+      judgment_system_prompt: mode.judgment_system_prompt || null,
     };
 
     const { error } = await supabase

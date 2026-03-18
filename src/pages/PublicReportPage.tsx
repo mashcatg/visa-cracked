@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Target, MessageSquare, Award, TrendingUp, Shield, Mic2, BookOpen, Brain, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getVisaVerdict } from "@/lib/score-verdict";
 
 export default function PublicReportPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,6 @@ export default function PublicReportPage() {
 
   const overallScore = report?.overall_score ?? 0;
   const scoreColor = (s: number) => s >= 80 ? "text-emerald-600" : s >= 60 ? "text-amber-500" : "text-red-500";
-  const scoreLabel = (s: number) => s >= 80 ? "Excellent" : s >= 60 ? "Good" : "Needs Work";
 
   const categories = [
     { label: "English", score: report?.english_score, icon: MessageSquare },
@@ -138,7 +138,7 @@ export default function PublicReportPage() {
                     <Target className="h-4 w-4" />
                     <span className="font-semibold text-sm">Overall Score</span>
                   </div>
-                  <p className="text-primary-foreground/60 text-xs">{scoreLabel(overallScore)}</p>
+                  <p className="text-primary-foreground/60 text-xs">{getVisaVerdict(overallScore)}</p>
                 </CardContent>
               </Card>
 

@@ -36,6 +36,119 @@ async function callAI(apiKey: string, systemPrompt: string, userPrompt: string):
   return JSON.parse(text);
 }
 
+function getValueByPath(source: any, path: string): any {
+  return path.split(".").reduce((acc, key) => (acc == null ? undefined : acc[key]), source);
+}
+
+function getFirstDefined(source: any, paths: string[]): any {
+  for (const path of paths) {
+    const value = getValueByPath(source, path);
+    if (value !== undefined && value !== null) return value;
+  }
+  return undefined;
+}
+
+function toScore(value: any): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.min(100, Math.max(0, Math.round(value)));
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.min(100, Math.max(0, Math.round(parsed)));
+    }
+  }
+  return null;
+}
+
+function toStringArray(value: any): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const candidate = item.text ?? item.message ?? item.reason ?? item.flag ?? item.value;
+        return typeof candidate === "string" ? candidate.trim() : "";
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function toGrammarMistakes(value: any): Array<{ original: string; corrected: string; explanation?: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const original = String(item.original ?? item.incorrect ?? "").trim();
+      const corrected = String(item.corrected ?? item.correct ?? "").trim();
+      const explanationRaw = item.explanation ?? item.reason;
+      const explanation = typeof explanationRaw === "string" ? explanationRaw.trim() : undefined;
+      if (!original || !corrected) return null;
+      return explanation ? { original, corrected, explanation } : { original, corrected };
+    })
+    .filter((item): item is { original: string; corrected: string; explanation?: string } => Boolean(item));
+}
+
+function toDetailedFeedback(value: any): Array<{ question: string; answer: string; score: number; feedback: string; suggested_answer?: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const question = String(item.question ?? item.prompt ?? "").trim();
+      const answer = String(item.answer ?? item.response ?? "").trim();
+      const feedback = String(item.feedback ?? item.comment ?? "").trim();
+      const score = toScore(item.score) ?? 0;
+      const suggestedRaw = item.suggested_answer ?? item.suggestedAnswer ?? item.better_answer;
+      const suggested_answer = typeof suggestedRaw === "string" ? suggestedRaw.trim() : undefined;
+
+      if (!question && !answer && !feedback) return null;
+      return suggested_answer
+        ? { question, answer, score, feedback, suggested_answer }
+        : { question, answer, score, feedback };
+    })
+    .filter((item): item is { question: string; answer: string; score: number; feedback: string; suggested_answer?: string } => Boolean(item));
+}
+
+function normalizeStructuredResult(result: any) {
+  const english_score = toScore(getFirstDefined(result, ["english_score", "english", "scores.english_score", "scores.english"]));
+  const confidence_score = toScore(getFirstDefined(result, ["confidence_score", "confidence", "scores.confidence_score", "scores.confidence"]));
+  const financial_clarity_score = toScore(getFirstDefined(result, ["financial_clarity_score", "financial_score", "financial_clarity", "financial", "scores.financial_clarity_score", "scores.financial"]));
+  const immigration_intent_score = toScore(getFirstDefined(result, ["immigration_intent_score", "immigration_score", "immigration_intent", "intent_score", "intent", "scores.immigration_intent_score", "scores.intent"]));
+  const pronunciation_score = toScore(getFirstDefined(result, ["pronunciation_score", "pronunciation", "scores.pronunciation_score", "scores.pronunciation"]));
+  const vocabulary_score = toScore(getFirstDefined(result, ["vocabulary_score", "vocabulary", "scores.vocabulary_score", "scores.vocabulary"]));
+  const response_relevance_score = toScore(getFirstDefined(result, ["response_relevance_score", "relevance_score", "response_relevance", "relevance", "scores.response_relevance_score", "scores.relevance"]));
+
+  const grammar_mistakes = toGrammarMistakes(getFirstDefined(result, ["grammar_mistakes", "grammarMistakes", "language_issues", "issues.grammar_mistakes"]));
+  const red_flags = toStringArray(getFirstDefined(result, ["red_flags", "redFlags", "concerns", "issues.red_flags"]));
+  const improvement_plan = toStringArray(getFirstDefined(result, ["improvement_plan", "improvementPlan", "recommendations", "action_plan", "next_steps"]));
+  const detailed_feedback = toDetailedFeedback(getFirstDefined(result, ["detailed_feedback", "question_feedback", "qa_feedback", "feedback_by_question"]));
+
+  const summaryRaw = getFirstDefined(result, ["summary", "verdict_reasoning", "overall_feedback", "final_summary"]);
+  const summary = typeof summaryRaw === "string" ? summaryRaw.trim() : null;
+  const overall_score = toScore(getFirstDefined(result, ["overall_score", "overall", "scores.overall_score", "scores.overall"]));
+  const mock_name = typeof result?.mock_name === "string" && result.mock_name.trim() ? result.mock_name.trim() : null;
+
+  return {
+    mock_name,
+    reportUpdate: {
+      overall_score,
+      summary,
+      english_score,
+      confidence_score,
+      financial_clarity_score,
+      immigration_intent_score,
+      pronunciation_score,
+      vocabulary_score,
+      response_relevance_score,
+      grammar_mistakes,
+      red_flags,
+      improvement_plan,
+      detailed_feedback,
+    },
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -206,12 +319,18 @@ ${structureStr}
 
 Be thorough and honest. Every score should be 0-100. Every note should be specific and actionable.${baseTranscript}`);
 
-          // Store the full structured result in detailed_feedback
-          await serviceClient.from("interview_reports").update({
-            detailed_feedback: result,
-            overall_score: result.overall_score ?? null,
-            summary: result.verdict_reasoning ?? result.summary ?? null,
-          }).eq("interview_id", interviewId);
+          const normalized = normalizeStructuredResult(result);
+          if (normalized.mock_name) {
+            await serviceClient
+              .from("interviews")
+              .update({ name: normalized.mock_name })
+              .eq("id", interviewId);
+          }
+
+          await serviceClient
+            .from("interview_reports")
+            .update(normalized.reportUpdate)
+            .eq("interview_id", interviewId);
           console.log("Structured output worker completed");
         } catch (e) {
           console.error("Structured output worker failed:", e);

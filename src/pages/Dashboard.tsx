@@ -10,7 +10,7 @@ import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReferralModal from "@/components/referral/ReferralModal";
-import { calculateProfileCompletion } from "@/lib/profile-completion";
+import { calculateProfileCompletion, hasCompletedRequiredProfileFields } from "@/lib/profile-completion";
 
 function ReferBanner() {
   const [referralOpen, setReferralOpen] = useState(false);
@@ -46,6 +46,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profileCompletion, setProfileCompletion] = useState(100);
+  const [hasRequiredProfileData, setHasRequiredProfileData] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -54,7 +55,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
     async function fetchProfile() {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, whatsapp_number, facebook_url, linkedin_url, instagram_url, visa_type")
+        .select("full_name, whatsapp_number, facebook_url, linkedin_url, instagram_url, visa_country, visa_type")
         .eq("user_id", user!.id)
         .single();
 
@@ -83,11 +84,29 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       }
 
       const completion = calculateProfileCompletion(
-        { whatsapp_number: profile?.whatsapp_number, facebook_url: profile?.facebook_url, linkedin_url: profile?.linkedin_url, instagram_url: profile?.instagram_url },
+        {
+          whatsapp_number: profile?.whatsapp_number,
+          facebook_url: profile?.facebook_url,
+          linkedin_url: profile?.linkedin_url,
+          instagram_url: profile?.instagram_url,
+          visa_country: profile?.visa_country,
+          visa_type: profile?.visa_type,
+        },
         formFields,
         userFormData
       );
       setProfileCompletion(completion);
+      setHasRequiredProfileData(
+        hasCompletedRequiredProfileFields(
+          {
+            whatsapp_number: profile?.whatsapp_number,
+            visa_country: profile?.visa_country,
+            visa_type: profile?.visa_type,
+          },
+          formFields,
+          userFormData
+        )
+      );
     }
     fetchProfile();
 
@@ -194,7 +213,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       </div>
 
       {/* Profile Completion CTA */}
-      {profileCompletion < 100 && (
+      {!hasRequiredProfileData && (
         <Card className="border-0 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-background">
           <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
             <div className="flex items-start gap-4 flex-1">
@@ -203,7 +222,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-sm">Complete your profile to get better interview results</p>
-                <p className="text-xs text-muted-foreground mt-1">A complete profile helps our AI tailor the interview to your real situation.</p>
+                <p className="text-xs text-muted-foreground mt-1">Please fill all required fields first. Optional fields can be completed later.</p>
                 <div className="flex items-center gap-3 mt-3">
                   <Progress value={profileCompletion} className="h-2 flex-1 max-w-xs" />
                   <span className="text-sm font-bold text-amber-600">{profileCompletion}%</span>

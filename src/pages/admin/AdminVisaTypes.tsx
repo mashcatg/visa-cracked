@@ -64,6 +64,7 @@ export default function AdminVisaTypes() {
   const [savingMode, setSavingMode] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
+  const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
 
   async function fetchData() {
     const [vt, c] = await Promise.all([
@@ -182,6 +183,17 @@ export default function AdminVisaTypes() {
 
   function removeFormField(index: number) {
     setFormFields(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function moveFormField(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    setFormFields((prev) => {
+      if (fromIndex >= prev.length || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
   }
 
   async function handleSaveFields() {
@@ -342,7 +354,21 @@ export default function AdminVisaTypes() {
               <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
             )}
             {formFields.map((field, index) => (
-              <div key={index} className="rounded-lg border p-3 space-y-2">
+              <div
+                key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                className="rounded-lg border p-3 space-y-2"
+                draggable
+                onDragStart={() => setDraggingFieldIndex(index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (draggingFieldIndex !== null) {
+                    moveFormField(draggingFieldIndex, index);
+                  }
+                  setDraggingFieldIndex(null);
+                }}
+                onDragEnd={() => setDraggingFieldIndex(null)}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground" />

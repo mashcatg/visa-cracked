@@ -419,7 +419,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
               <User className="h-3.5 w-3.5 mr-2" /> Profile Page
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/profile/edit")} className="cursor-pointer">
-              <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
+              <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Profile
               <ProfileCompletionBadge userId={user?.id} />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
@@ -805,7 +805,7 @@ export default function AppSidebar(props: AppSidebarProps) {
                 <User className="h-3.5 w-3.5 mr-2" /> Profile Page
               </Button>
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); navigate("/profile/edit"); }}>
-                <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
+                <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Profile
               </Button>
               <Button variant="ghost" className="w-full justify-start" onClick={() => { setMobileProfileDrawerOpen(false); setMobileNewPassword(""); setMobileConfirmPassword(""); setMobileChangePassOpen(true); }}>
                 <Lock className="h-3.5 w-3.5 mr-2" /> Change Password

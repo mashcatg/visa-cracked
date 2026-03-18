@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getVisaVerdict } from "@/lib/score-verdict";
 
 interface GrammarMistake {
   original: string;
@@ -258,8 +259,6 @@ export default function InterviewReport() {
 
   const scoreColor = (score: number) =>
     score >= 80 ? "text-emerald-600" : score >= 60 ? "text-amber-500" : "text-red-500";
-  const scoreLabel = (score: number) =>
-    score >= 80 ? "Excellent" : score >= 60 ? "Good" : "Needs Work";
 
   const hasSummary = report?.summary != null;
   const hasScores = report?.english_score != null;
@@ -322,7 +321,7 @@ export default function InterviewReport() {
               <Target className="h-4 w-4" />
               <span className="font-semibold text-sm">Overall Score</span>
             </div>
-            <p className="text-primary-foreground/60 text-xs">{scoreLabel(overallScore)}</p>
+            <p className="text-primary-foreground/60 text-xs">{getVisaVerdict(overallScore)}</p>
           </CardContent>
         </Card>
       ) : !analysisFailed ? (

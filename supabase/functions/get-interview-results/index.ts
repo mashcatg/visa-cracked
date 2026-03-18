@@ -10,6 +10,12 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const DIFFICULTY_CREDIT_COST: Record<string, number> = {
+  easy: 10,
+  medium: 12,
+  hard: 15,
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,7 +57,7 @@ Deno.serve(async (req) => {
     // Get the interview to find the Vapi call ID
     const { data: interview } = await serviceClient
       .from("interviews")
-      .select("vapi_call_id, user_id")
+      .select("vapi_call_id, user_id, difficulty")
       .eq("id", interviewId)
       .single();
 
@@ -115,7 +121,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", interviewId);
 
-    // Deduct 10 credits ONLY on successful call
+    // Deduct credits ONLY on successful call based on selected difficulty
     const { data: profile } = await serviceClient
       .from("profiles")
       .select("credits")
@@ -123,9 +129,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (profile) {
+      const creditCost = DIFFICULTY_CREDIT_COST[interview.difficulty || ""] ?? 10;
       await serviceClient
         .from("profiles")
-        .update({ credits: Math.max(0, (profile.credits ?? 0) - 10) })
+        .update({ credits: Math.max(0, (profile.credits ?? 0) - creditCost) })
         .eq("user_id", interview.user_id);
     }
 

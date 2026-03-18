@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus, Pencil, Settings2, Save, Loader2, ListChecks, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, Plus, Pencil, Settings2, Save, Loader2, ListChecks, GripVertical, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Tables } from "@/integrations/supabase/types";
 import DataTableControls from "@/components/admin/DataTableControls";
 import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
@@ -46,6 +45,8 @@ type FormField = {
   is_required: boolean;
   sort_order: number;
   options: string[];
+  section_title: string;
+  layout_width: "full" | "half";
 };
 
 export default function AdminVisaTypes() {
@@ -68,6 +69,7 @@ export default function AdminVisaTypes() {
   const [savingFields, setSavingFields] = useState(false);
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
   const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
+  const [openFieldIndex, setOpenFieldIndex] = useState<number | null>(null);
 
   async function fetchData() {
     const [vt, c] = await Promise.all([
@@ -135,7 +137,10 @@ export default function AdminVisaTypes() {
       is_required: f.is_required,
       sort_order: f.sort_order,
       options: Array.isArray(f.options) ? f.options : [],
+      section_title: f.section_title || "",
+      layout_width: f.layout_width === "half" ? "half" : "full",
     })));
+    setOpenFieldIndex(null);
     setFieldsDialogOpen(true);
   }
 
@@ -176,8 +181,9 @@ export default function AdminVisaTypes() {
 
   function addFormField() {
     setFormFields(prev => [...prev, {
-      label: "", field_key: "", field_type: "text", placeholder: "", is_required: false, sort_order: prev.length, options: [],
+      label: "", field_key: "", field_type: "text", placeholder: "", is_required: false, sort_order: prev.length, options: [], section_title: "", layout_width: "full",
     }]);
+    setOpenFieldIndex(formFields.length);
   }
 
   function updateFormField(index: number, field: string, value: any) {
@@ -233,6 +239,8 @@ export default function AdminVisaTypes() {
         is_required: f.is_required,
         sort_order: i,
         options: f.field_type === "select" ? f.options : null,
+        section_title: f.section_title?.trim() || null,
+        layout_width: f.layout_width || "full",
       }));
       const { error } = await supabase.from("visa_type_form_fields").insert(inserts);
       if (error) { toast.error(error.message); setSavingFields(false); return; }
@@ -367,59 +375,82 @@ export default function AdminVisaTypes() {
             {formFields.length === 0 && (
               <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
             )}
-            {formFields.length > 0 && (
-              <Accordion type="multiple" className="space-y-2">
-                {formFields.map((field, index) => (
-                  <AccordionItem
-                    key={field.id ?? `field-${index}-${field.field_key || "new"}`}
-                    value={`field-${index}`}
-                    className={cn(
-                      "rounded-lg border px-3",
-                      dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
-                    )}
-                    draggable
-                    onDragStart={() => setDraggingFieldIndex(index)}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOverFieldIndex(index);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (draggingFieldIndex !== null) {
-                        moveFormField(draggingFieldIndex, index);
-                      }
-                      setDraggingFieldIndex(null);
-                      setDragOverFieldIndex(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggingFieldIndex(null);
-                      setDragOverFieldIndex(null);
-                    }}
-                  >
-                    <div className="flex items-center gap-2 py-1">
-                      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <AccordionTrigger className="py-2 hover:no-underline">
-                        <div className="flex items-center gap-2 text-left">
-                          <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
-                          <span className="text-sm font-semibold">{field.label || "Untitled Field"}</span>
-                          {field.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
-                        </div>
-                      </AccordionTrigger>
-                      <div className="flex items-center gap-1 ml-2">
-                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
+            {formFields.length > 0 && formFields.map((field, index) => {
+              const isOpen = openFieldIndex === index;
+              return (
+                <div
+                  key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 transition-all",
+                    dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
+                  )}
+                  draggable
+                  onMouseEnter={() => setOpenFieldIndex(index)}
+                  onMouseLeave={() => setOpenFieldIndex((current) => (current === index ? null : current))}
+                  onDragStart={() => setDraggingFieldIndex(index)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverFieldIndex(index);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggingFieldIndex !== null) {
+                      moveFormField(draggingFieldIndex, index);
+                    }
+                    setDraggingFieldIndex(null);
+                    setDragOverFieldIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingFieldIndex(null);
+                    setDragOverFieldIndex(null);
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
+                        <span className="text-sm font-semibold truncate">{field.label || "Untitled Field"}</span>
+                        {field.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
                       </div>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {(field.section_title || "General")} · {field.layout_width === "half" ? "Half Width" : "Full Width"}
+                      </p>
                     </div>
 
-                    <AccordionContent>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="flex items-center gap-1">
+                      <Button type="button" variant="ghost" size="icon" onClick={() => setOpenFieldIndex(isOpen ? null : index)}>
+                        {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="mt-3 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Section Title</Label>
+                          <Input value={field.section_title} onChange={e => updateFormField(index, "section_title", e.target.value)} placeholder="e.g. Personal Details" className="text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Desktop Width</Label>
+                          <Select value={field.layout_width} onValueChange={(v: "full" | "half") => updateFormField(index, "layout_width", v)}>
+                            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="full">Full Width</SelectItem>
+                              <SelectItem value="half">Half Width (side-by-side)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Label</Label>
                           <Input value={field.label} onChange={e => updateFormField(index, "label", e.target.value)} placeholder="e.g. University Name" className="text-sm" />
@@ -441,7 +472,7 @@ export default function AdminVisaTypes() {
                         </div>
                       </div>
                       {field.field_type === "select" && (
-                        <div className="space-y-1 mt-2">
+                        <div className="space-y-1 mt-1">
                           <Label className="text-xs">Options (comma-separated)</Label>
                           <Input value={(field.options || []).join(", ")} onChange={e => updateFormField(index, "options", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} placeholder="Option 1, Option 2, Option 3" className="text-sm" />
                         </div>
@@ -450,11 +481,11 @@ export default function AdminVisaTypes() {
                         <Switch checked={field.is_required} onCheckedChange={v => updateFormField(index, "is_required", v)} />
                         <Label className="text-xs">Required</Label>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             <div className="flex gap-2">
               <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
               <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">

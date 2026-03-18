@@ -22,6 +22,8 @@ interface FormField {
   is_required: boolean;
   sort_order: number;
   options: any;
+  section_title?: string | null;
+  layout_width?: "full" | "half";
 }
 
 const borderlessInputClass = "border-0 shadow-none focus-visible:ring-1 focus-visible:ring-accent bg-muted/30";
@@ -190,6 +192,17 @@ export default function Onboarding() {
     return <Input className={borderlessInputClass} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={value} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || ""} />;
   }
 
+  const dynamicSections = formFields.reduce<Array<{ title: string; fields: FormField[] }>>((acc, field) => {
+    const sectionTitle = (field.section_title || "General Details").trim();
+    const existing = acc.find((section) => section.title === sectionTitle);
+    if (existing) {
+      existing.fields.push(field);
+    } else {
+      acc.push({ title: sectionTitle, fields: [field] });
+    }
+    return acc;
+  }, []);
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
@@ -248,11 +261,18 @@ export default function Onboarding() {
                   <div className="flex items-center gap-3">
                     <div className="h-px flex-1 bg-border" /><span className="text-xs text-muted-foreground">or enter manually</span><div className="h-px flex-1 bg-border" />
                   </div>
-                  <div className="grid gap-3">
-                    {formFields.map(field => (
-                      <div key={field.field_key} className="space-y-1">
-                        <Label className="text-xs">{field.label}{field.is_required && <span className="text-destructive"> *</span>}</Label>
-                        {renderDynamicField(field)}
+                  <div className="space-y-4">
+                    {dynamicSections.map((section) => (
+                      <div key={section.title} className="space-y-3">
+                        <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {section.fields.map((field) => (
+                            <div key={field.field_key} className={`space-y-1 ${field.layout_width === "half" ? "md:col-span-1" : "md:col-span-2"}`}>
+                              <Label className="text-xs">{field.label}{field.is_required && <span className="text-destructive"> *</span>}</Label>
+                              {renderDynamicField(field)}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>

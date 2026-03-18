@@ -20,6 +20,8 @@ interface FormField {
   placeholder: string | null;
   is_required: boolean;
   options: any;
+  section_title?: string | null;
+  layout_width?: "full" | "half";
 }
 
 export default function EditProfilePage() {
@@ -168,6 +170,17 @@ export default function EditProfilePage() {
     return <Input className={borderlessInputClass} type={field.field_type === "date" ? "date" : field.field_type === "number" ? "number" : "text"} value={value} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || ""} />;
   }
 
+  const dynamicSections = formFields.reduce<Array<{ title: string; fields: FormField[] }>>((acc, field) => {
+    const sectionTitle = (field.section_title || "General Details").trim();
+    const existing = acc.find((section) => section.title === sectionTitle);
+    if (existing) {
+      existing.fields.push(field);
+    } else {
+      acc.push({ title: sectionTitle, fields: [field] });
+    }
+    return acc;
+  }, []);
+
   if (loading) {
     return <DashboardLayout><div className="flex h-full min-h-[60vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div></DashboardLayout>;
   }
@@ -221,11 +234,18 @@ export default function EditProfilePage() {
         {formFields.length > 0 && (
           <Card>
             <CardHeader><CardTitle>Visa Form Details</CardTitle><CardDescription>Fields specific to your visa type</CardDescription></CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {formFields.map(field => (
-                <div key={field.field_key} className="space-y-2">
-                  <Label>{field.label}{field.is_required && <span className="text-destructive"> *</span>}</Label>
-                  {renderDynamicField(field)}
+            <CardContent className="space-y-5">
+              {dynamicSections.map((section) => (
+                <div key={section.title} className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {section.fields.map(field => (
+                      <div key={field.field_key} className={`space-y-2 ${field.layout_width === "half" ? "md:col-span-1" : "md:col-span-2"}`}>
+                        <Label>{field.label}{field.is_required && <span className="text-destructive"> *</span>}</Label>
+                        {renderDynamicField(field)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </CardContent>

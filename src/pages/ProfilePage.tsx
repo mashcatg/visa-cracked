@@ -28,6 +28,8 @@ type DynamicProfileField = {
   label: string;
   value: string;
   is_required: boolean;
+  section_title: string;
+  layout_width: "full" | "half";
 };
 
 export default function ProfilePage() {
@@ -88,7 +90,7 @@ export default function ProfilePage() {
     const [fieldsRes, valuesRes] = await Promise.all([
       supabase
         .from("visa_type_form_fields")
-        .select("field_key, label, is_required")
+        .select("field_key, label, is_required, section_title, layout_width")
         .eq("visa_type_id", visaTypeId)
         .order("sort_order"),
       supabase
@@ -109,9 +111,22 @@ export default function ProfilePage() {
         label: field.label,
         is_required: Boolean(field.is_required),
         value: valuesMap.get(field.field_key) || "",
+        section_title: field.section_title || "General Details",
+        layout_width: field.layout_width === "half" ? "half" : "full",
       }))
     );
   }
+
+  const dynamicSections = dynamicFields.reduce<Array<{ title: string; fields: DynamicProfileField[] }>>((acc, field) => {
+    const sectionTitle = (field.section_title || "General Details").trim();
+    const existing = acc.find((section) => section.title === sectionTitle);
+    if (existing) {
+      existing.fields.push(field);
+    } else {
+      acc.push({ title: sectionTitle, fields: [field] });
+    }
+    return acc;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -220,13 +235,21 @@ export default function ProfilePage() {
               <CardTitle>Dynamic Visa Form Data</CardTitle>
               <CardDescription>All visa-type specific fields configured by admin</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dynamicFields.map((field) => (
-                <Info
-                  key={field.field_key}
-                  label={`${field.label}${field.is_required ? " *" : ""}`}
-                  value={field.value}
-                />
+            <CardContent className="space-y-5">
+              {dynamicSections.map((section) => (
+                <div key={section.title} className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {section.fields.map((field) => (
+                      <div key={field.field_key} className={field.layout_width === "half" ? "md:col-span-1" : "md:col-span-2"}>
+                        <Info
+                          label={`${field.label}${field.is_required ? " *" : ""}`}
+                          value={field.value}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </CardContent>
           </Card>

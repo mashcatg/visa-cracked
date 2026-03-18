@@ -244,6 +244,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const allowedFieldKeys = sanitizedFields.map((field: any) => field.field_key);
+    const ocrTextLength = extractedText.length;
+
     const heuristicNormalized = Object.fromEntries(
       sanitizedFields.map((field: any) => {
         const extracted = extractHeuristicValue(extractedText, field.field_key, field.label);
@@ -261,7 +264,19 @@ Deno.serve(async (req: Request) => {
       });
 
       extractedText = "";
-      return new Response(JSON.stringify(heuristicNormalized), {
+      return new Response(JSON.stringify({
+        ...heuristicNormalized,
+        __debug: {
+          extractor_version: "2026-03-18-heuristic-v1",
+          source: "heuristic_only",
+          visa_type_id,
+          allowed_keys: allowedFieldKeys,
+          returned_keys: Object.keys(heuristicNormalized),
+          heuristic_filled_count: heuristicFilledCount,
+          total_fields: sanitizedFields.length,
+          ocr_text_length: ocrTextLength,
+        },
+      }), {
         headers: {
           ...jsonHeaders,
           "x-extractor-version": "2026-03-18-heuristic-v1",
@@ -439,9 +454,28 @@ Rules:
       total: sanitizedFields.length,
     });
 
+    const staticLeakKeys = ["sevis_id", "visa_country", "visa_type", "start_date", "student_name"];
+    const leakedStaticKeys = Object.keys(structured || {}).filter((key) => staticLeakKeys.includes(normalizeKey(key)));
+
     extractedText = "";
 
-    return new Response(JSON.stringify(normalized), {
+    return new Response(JSON.stringify({
+      ...normalized,
+      __debug: {
+        extractor_version: "2026-03-18-heuristic-ai-min-v1",
+        source: "ai_with_filter",
+        visa_type_id,
+        allowed_keys: allowedFieldKeys,
+        ai_raw_keys: Object.keys(structured || {}),
+        unknown_ai_keys: unknownKeys,
+        leaked_static_ai_keys: leakedStaticKeys,
+        returned_keys: Object.keys(normalized),
+        filled_count: filledCount,
+        total_fields: sanitizedFields.length,
+        heuristic_filled_count: heuristicFilledCount,
+        ocr_text_length: ocrTextLength,
+      },
+    }), {
       headers: {
         ...jsonHeaders,
         "x-extractor-version": "2026-03-18-heuristic-ai-min-v1",

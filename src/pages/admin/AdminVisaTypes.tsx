@@ -522,7 +522,7 @@ export default function AdminVisaTypes() {
                 if (field.item_type === "section") {
                   return (
                     <div
-                      key={field.id ?? `section-${index}-${field.section_title || "new"}`}
+                      key={field.id ?? `section-${index}`}
                       className={cn(
                         "rounded-lg border px-3 py-2 transition-all bg-muted/30",
                         dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
@@ -568,7 +568,7 @@ export default function AdminVisaTypes() {
 
                 return (
                   <div
-                    key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                    key={field.id ?? `field-${index}`}
                     className={cn(
                       "rounded-lg border px-3 py-2 transition-all",
                       dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
@@ -701,7 +701,7 @@ export default function AdminVisaTypes() {
                 if (field.item_type === "section") {
                   return (
                     <div
-                      key={field.id ?? `section-${index}-${field.section_title || "new"}`}
+                      key={field.id ?? `section-${index}`}
                       className={cn(
                         "rounded-lg border px-3 py-2 transition-all bg-muted/30",
                         dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
@@ -747,7 +747,7 @@ export default function AdminVisaTypes() {
 
                 return (
                   <div
-                    key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                    key={field.id ?? `field-${index}`}
                     className={cn(
                       "rounded-lg border px-3 py-2 transition-all",
                       dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"

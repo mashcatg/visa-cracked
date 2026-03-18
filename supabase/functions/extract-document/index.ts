@@ -21,6 +21,65 @@ function normalizeKey(value: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
+function toIsoDate(raw: string): string {
+  const value = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const numeric = value.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (numeric) {
+    const month = Number(numeric[1]);
+    const day = Number(numeric[2]);
+    const year = Number(numeric[3].length === 2 ? `20${numeric[3]}` : numeric[3]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+    }
+  }
+
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) {
+    const year = parsed.getUTCFullYear();
+    const month = `${parsed.getUTCMonth() + 1}`.padStart(2, "0");
+    const day = `${parsed.getUTCDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  return raw.trim();
+}
+
+function extractHeuristicValue(text: string, fieldKey: string, label: string): string {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const keyVariants = [fieldKey, fieldKey.replace(/_/g, " "), label, label.toLowerCase()]
+    .map((variant) => variant.trim().toLowerCase())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    for (const keyVariant of keyVariants) {
+      if (!lower.includes(keyVariant)) continue;
+
+      const regex = new RegExp(`${keyVariant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[:\\-]\\s*(.+)$`, "i");
+      const match = line.match(regex);
+      if (match?.[1]) {
+        return match[1].trim();
+      }
+    }
+  }
+
+  const keyPattern = fieldKey.toLowerCase();
+  if (keyPattern.includes("dob") || keyPattern.includes("date")) {
+    const dateMatch = text.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|[A-Za-z]{3,9}\s+\d{1,2},\s*\d{4})\b/);
+    if (dateMatch?.[1]) {
+      return toIsoDate(dateMatch[1]);
+    }
+  }
+
+  return "";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -185,6 +244,31 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const heuristicNormalized = Object.fromEntries(
+      sanitizedFields.map((field: any) => {
+        const extracted = extractHeuristicValue(extractedText, field.field_key, field.label);
+        return [field.field_key, field.field_type === "date" && extracted ? toIsoDate(extracted) : extracted];
+      })
+    );
+
+    const heuristicFilledCount = Object.values(heuristicNormalized).filter((value) => String(value || "").trim().length > 0).length;
+    const minHeuristicReturn = Math.max(2, Math.ceil(sanitizedFields.length * 0.75));
+
+    if (heuristicFilledCount >= minHeuristicReturn) {
+      console.log("Heuristic extraction used (AI skipped)", {
+        heuristicFilledCount,
+        total: sanitizedFields.length,
+      });
+
+      extractedText = "";
+      return new Response(JSON.stringify(heuristicNormalized), {
+        headers: {
+          ...jsonHeaders,
+          "x-extractor-version": "2026-03-18-heuristic-v1",
+        },
+      });
+    }
+
     const schemaExample = Object.fromEntries(sanitizedFields.map((field: any) => [field.field_key, ""]));
     const fieldHints = sanitizedFields
       .map((field: any) => {
@@ -249,13 +333,6 @@ Rules:
       max_tokens: 1600,
     };
 
-    const requestWithoutJsonMode = {
-      model: "google/gemini-2.5-flash",
-      messages: baseMessages,
-      temperature: 0,
-      max_tokens: 1600,
-    };
-
     let aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -281,27 +358,13 @@ Rules:
       if (!aiRes.ok) {
         const firstError = await aiRes.text();
         console.error("AI gateway error (json mode):", aiRes.status, firstError.slice(0, 1000));
-
-        aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestWithoutJsonMode),
+        return new Response(JSON.stringify({
+          error: "Data extraction failed",
+          details: `AI gateway failed. json_schema_mode=failed, json_mode=failed, status=${aiRes.status}`,
+        }), {
+          status: 500,
+          headers: jsonHeaders,
         });
-
-        if (!aiRes.ok) {
-          const secondError = await aiRes.text();
-          console.error("AI gateway error (fallback):", aiRes.status, secondError.slice(0, 1000));
-          return new Response(JSON.stringify({
-            error: "Data extraction failed",
-            details: `AI gateway failed. json_schema_mode=failed, json_mode=failed, fallback_status=${aiRes.status}`,
-          }), {
-            status: 500,
-            headers: jsonHeaders,
-          });
-        }
       }
     }
 
@@ -346,18 +409,19 @@ Rules:
     const allowedKeys = new Set(sanitizedFields.map((field: any) => field.field_key));
     const unknownKeys = Array.from(structuredMap.keys()).filter((key) => !allowedKeys.has(key));
 
-    let normalized = Object.fromEntries(
+    const normalized = Object.fromEntries(
       sanitizedFields.map((field: any) => {
         const raw = structured?.[field.field_key];
         if (typeof raw === "string") {
           return [field.field_key, raw];
         }
         const mapped = structuredMap.get(field.field_key);
-        return [field.field_key, mapped ?? ""];
+        const heuristic = heuristicNormalized[field.field_key] || "";
+        return [field.field_key, mapped ?? heuristic];
       })
     );
 
-    let filledCount = Object.values(normalized).filter((value) => String(value || "").trim().length > 0).length;
+    const filledCount = Object.values(normalized).filter((value) => String(value || "").trim().length > 0).length;
     const fillRatio = sanitizedFields.length > 0 ? filledCount / sanitizedFields.length : 0;
 
     if ((unknownKeys.length > 0 && fillRatio < 0.7) || filledCount === 0) {
@@ -367,78 +431,6 @@ Rules:
         filledCount,
         totalFields: sanitizedFields.length,
       });
-
-      const remapMessages = [
-        {
-          role: "system",
-          content: `You must map extracted values to ONLY the exact schema keys.
-
-Allowed keys only:
-${JSON.stringify(schemaExample, null, 2)}
-
-Forbidden keys include legacy/static keys like sevis_id, visa_country, visa_type, start_date, student_name.
-
-Rules:
-- Return ONLY a JSON object with exactly the allowed keys.
-- If a value cannot be found, return empty string.
-- Do not invent values.
-- Do not include any key outside allowed keys.`,
-        },
-        {
-          role: "user",
-          content: `Field hints:\n${fieldHints}\n\nDocument text:\n${extractedText.slice(0, 12000)}\n\nPrevious model output:\n${JSON.stringify(structured, null, 2)}\n\nNow remap strictly to allowed keys only.`,
-        },
-      ];
-
-      const remapRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          response_format: { type: "json_object" },
-          messages: remapMessages,
-          temperature: 0,
-          max_tokens: 1600,
-        }),
-      });
-
-      if (remapRes.ok) {
-        const remapData = await remapRes.json();
-        const remapContent = remapData.choices?.[0]?.message?.content;
-        let remapText = typeof remapContent === "string"
-          ? remapContent
-          : Array.isArray(remapContent)
-            ? remapContent.map((part: any) => (typeof part?.text === "string" ? part.text : "")).join("\n")
-            : "";
-
-        remapText = remapText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-
-        try {
-          const remapStructured = JSON.parse(remapText);
-          const remapEntries = Object.entries(remapStructured || {});
-          const remapMap = new Map<string, string>();
-          remapEntries.forEach(([key, value]) => {
-            remapMap.set(normalizeKey(String(key)), typeof value === "string" ? value : value == null ? "" : String(value));
-          });
-
-          const remapNormalized = Object.fromEntries(
-            sanitizedFields.map((field: any) => [field.field_key, remapMap.get(field.field_key) ?? ""])
-          );
-
-          const remapFilledCount = Object.values(remapNormalized).filter((value) => String(value || "").trim().length > 0).length;
-          if (remapFilledCount >= filledCount) {
-            normalized = remapNormalized;
-            filledCount = remapFilledCount;
-          }
-        } catch (remapParseError) {
-          console.error("Failed to parse remap output", remapParseError);
-        }
-      } else {
-        console.error("AI remap retry failed", remapRes.status, await remapRes.text());
-      }
     }
 
     console.log("Extraction result summary", {
@@ -450,7 +442,10 @@ Rules:
     extractedText = "";
 
     return new Response(JSON.stringify(normalized), {
-      headers: jsonHeaders,
+      headers: {
+        ...jsonHeaders,
+        "x-extractor-version": "2026-03-18-heuristic-ai-min-v1",
+      },
     });
   } catch (error) {
     console.error("extract-document error:", error);

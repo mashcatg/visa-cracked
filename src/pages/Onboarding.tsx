@@ -92,6 +92,17 @@ export default function Onboarding() {
     setUploading(true);
     try {
       const base64 = await fileToBase64(file);
+      const traceId = `extract-${Date.now()}`;
+      const expectedKeys = formFields.map((field) => field.field_key);
+      const requiredKeys = formFields.filter((field) => field.is_required).map((field) => field.field_key);
+
+      console.group(`[DOC_EXTRACT][${traceId}] Request`);
+      console.log("visa_type_id", visaTypeId);
+      console.log("file", { name: file.name, type: file.type, size: file.size, base64Length: base64.length });
+      console.log("expectedKeys", expectedKeys);
+      console.log("requiredKeys", requiredKeys);
+      console.groupEnd();
+
       const { data, error } = await supabase.functions.invoke("extract-document", {
         body: {
           file_base64: base64,
@@ -99,6 +110,22 @@ export default function Onboarding() {
           visa_type_id: visaTypeId,
         },
       });
+
+      console.group(`[DOC_EXTRACT][${traceId}] Response`);
+      console.log("rawData", data);
+      console.log("rawError", error);
+
+      const responseKeys = data && typeof data === "object" ? Object.keys(data) : [];
+      const unknownKeys = responseKeys.filter((key) => !expectedKeys.includes(key));
+      const missingExpectedKeys = expectedKeys.filter((key) => !responseKeys.includes(key));
+      const matchedNonEmpty = expectedKeys.filter((key) => typeof data?.[key] === "string" && data[key].trim().length > 0);
+
+      console.log("responseKeys", responseKeys);
+      console.log("matchedNonEmpty", matchedNonEmpty);
+      console.log("missingExpectedKeys", missingExpectedKeys);
+      console.log("unknownKeys", unknownKeys);
+      console.groupEnd();
+
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data) {
@@ -114,6 +141,12 @@ export default function Onboarding() {
         toast.success("Document data extracted! Please review the fields.");
       }
     } catch (err: any) {
+      console.group("[DOC_EXTRACT] Failure");
+      console.error("error", err);
+      console.error("message", err?.message);
+      console.error("details", err?.details);
+      console.error("hint", err?.hint);
+      console.groupEnd();
       toast.error(err.message || "Failed to extract document data");
     }
     setUploading(false);

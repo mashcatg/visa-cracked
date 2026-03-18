@@ -153,14 +153,7 @@ export default function InterviewRoom() {
         const call = await (vapi as any).start({
           assistantId: data.assistantId,
           assistantOverrides: {
-            variableValues: {
-              university: data?.variableValues?.university || "",
-              program: data?.variableValues?.program || "",
-              sevis_id: data?.variableValues?.sevis_id || "",
-              visa_country: data?.variableValues?.visa_country || "",
-              visa_type: data?.variableValues?.visa_type || "",
-              start_date: data?.variableValues?.start_date || "",
-            },
+            variableValues: data.variableValues || {},
           },
         });
         setCallData(call);

@@ -194,10 +194,35 @@ Deno.serve(async (req) => {
       { onConflict: "interview_id" }
     );
 
-    // Fire 4 parallel workers
-    const worker1 = async () => {
-      try {
-        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with exactly these fields:
+    // If output_structure is defined, use a single worker with structured output
+    if (outputStructure) {
+      const structuredWorker = async () => {
+        try {
+          const structureStr = JSON.stringify(outputStructure, null, 2);
+          const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview${difficultyLabel}.
+
+Return your analysis in EXACTLY this JSON structure (fill in all scores, notes, and fields):
+${structureStr}
+
+Be thorough and honest. Every score should be 0-100. Every note should be specific and actionable.${baseTranscript}`);
+
+          // Store the full structured result in detailed_feedback
+          await serviceClient.from("interview_reports").update({
+            detailed_feedback: result,
+            overall_score: result.overall_score ?? null,
+            summary: result.verdict_reasoning ?? result.summary ?? null,
+          }).eq("interview_id", interviewId);
+          console.log("Structured output worker completed");
+        } catch (e) {
+          console.error("Structured output worker failed:", e);
+        }
+      };
+      await structuredWorker();
+    } else {
+      // Fire 4 parallel workers (existing logic)
+      const worker1 = async () => {
+        try {
+          const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with exactly these fields:
 {
   "mock_name": "<creative 3-5 word name for this mock test>",
   "overall_score": <number 0-100, weighted average considering all aspects>,
@@ -206,22 +231,22 @@ Deno.serve(async (req) => {
 
 Be honest and thorough.${baseTranscript}`);
 
-        if (result.mock_name) {
-          await serviceClient.from("interviews").update({ name: result.mock_name }).eq("id", interviewId);
+          if (result.mock_name) {
+            await serviceClient.from("interviews").update({ name: result.mock_name }).eq("id", interviewId);
+          }
+          await serviceClient.from("interview_reports").update({
+            overall_score: result.overall_score,
+            summary: result.summary,
+          }).eq("interview_id", interviewId);
+          console.log("Worker 1 (summary) completed");
+        } catch (e) {
+          console.error("Worker 1 failed:", e);
         }
-        await serviceClient.from("interview_reports").update({
-          overall_score: result.overall_score,
-          summary: result.summary,
-        }).eq("interview_id", interviewId);
-        console.log("Worker 1 (summary) completed");
-      } catch (e) {
-        console.error("Worker 1 failed:", e);
-      }
-    };
+      };
 
-    const worker2 = async () => {
-      try {
-        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with exactly these 7 scores (each 0-100):
+      const worker2 = async () => {
+        try {
+          const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with exactly these 7 scores (each 0-100):
 {
   "english_score": <grammar accuracy, sentence structure, fluency>,
   "confidence_score": <directness, absence of hesitation, clarity>,
@@ -232,24 +257,24 @@ Be honest and thorough.${baseTranscript}`);
   "response_relevance_score": <how directly each question was answered>
 }${baseTranscript}`);
 
-        await serviceClient.from("interview_reports").update({
-          english_score: result.english_score,
-          confidence_score: result.confidence_score,
-          financial_clarity_score: result.financial_clarity_score,
-          immigration_intent_score: result.immigration_intent_score,
-          pronunciation_score: result.pronunciation_score,
-          vocabulary_score: result.vocabulary_score,
-          response_relevance_score: result.response_relevance_score,
-        }).eq("interview_id", interviewId);
-        console.log("Worker 2 (scores) completed");
-      } catch (e) {
-        console.error("Worker 2 failed:", e);
-      }
-    };
+          await serviceClient.from("interview_reports").update({
+            english_score: result.english_score,
+            confidence_score: result.confidence_score,
+            financial_clarity_score: result.financial_clarity_score,
+            immigration_intent_score: result.immigration_intent_score,
+            pronunciation_score: result.pronunciation_score,
+            vocabulary_score: result.vocabulary_score,
+            response_relevance_score: result.response_relevance_score,
+          }).eq("interview_id", interviewId);
+          console.log("Worker 2 (scores) completed");
+        } catch (e) {
+          console.error("Worker 2 failed:", e);
+        }
+      };
 
-    const worker3 = async () => {
-      try {
-        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with:
+      const worker3 = async () => {
+        try {
+          const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview and return JSON with:
 {
   "grammar_mistakes": [
     {"original": "<exact phrase>", "corrected": "<corrected version>", "explanation": "<brief explanation>"}
@@ -260,20 +285,20 @@ Be honest and thorough.${baseTranscript}`);
 
 Find EVERY grammar mistake. Flag EVERY red flag. Provide at least 5 improvement recommendations. Be thorough.${baseTranscript}`);
 
-        await serviceClient.from("interview_reports").update({
-          grammar_mistakes: result.grammar_mistakes || [],
-          red_flags: result.red_flags || [],
-          improvement_plan: result.improvement_plan || [],
-        }).eq("interview_id", interviewId);
-        console.log("Worker 3 (issues) completed");
-      } catch (e) {
-        console.error("Worker 3 failed:", e);
-      }
-    };
+          await serviceClient.from("interview_reports").update({
+            grammar_mistakes: result.grammar_mistakes || [],
+            red_flags: result.red_flags || [],
+            improvement_plan: result.improvement_plan || [],
+          }).eq("interview_id", interviewId);
+          console.log("Worker 3 (issues) completed");
+        } catch (e) {
+          console.error("Worker 3 failed:", e);
+        }
+      };
 
-    const worker4 = async () => {
-      try {
-        const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview. For EACH question-answer exchange, return JSON:
+      const worker4 = async () => {
+        try {
+          const result = await callAI(LOVABLE_API_KEY, baseSystemPrompt, `Analyze this ${countryName} ${visaType} visa mock interview. For EACH question-answer exchange, return JSON:
 {
   "detailed_feedback": [
     {
@@ -288,17 +313,18 @@ Find EVERY grammar mistake. Flag EVERY red flag. Provide at least 5 improvement 
 
 Cover every Q&A exchange. Be constructive.${baseTranscript}`);
 
-        await serviceClient.from("interview_reports").update({
-          detailed_feedback: result.detailed_feedback || [],
-        }).eq("interview_id", interviewId);
-        console.log("Worker 4 (feedback) completed");
-      } catch (e) {
-        console.error("Worker 4 failed:", e);
-      }
-    };
+          await serviceClient.from("interview_reports").update({
+            detailed_feedback: result.detailed_feedback || [],
+          }).eq("interview_id", interviewId);
+          console.log("Worker 4 (feedback) completed");
+        } catch (e) {
+          console.error("Worker 4 failed:", e);
+        }
+      };
 
-    // Run all in parallel and wait
-    await Promise.allSettled([worker1(), worker2(), worker3(), worker4()]);
+      // Run all in parallel and wait
+      await Promise.allSettled([worker1(), worker2(), worker3(), worker4()]);
+    }
 
     // Recompute overall_score as the true average of the 7 individual scores
     try {

@@ -10,7 +10,9 @@ import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReferralModal from "@/components/referral/ReferralModal";
-import { calculateProfileCompletion, hasCompletedRequiredProfileFields } from "@/lib/profile-completion";
+import { calculateProfileCompletion } from "@/lib/profile-completion";
+
+const PROFILE_CTA_MIN_COMPLETION = 90;
 
 function ReferBanner() {
   const [referralOpen, setReferralOpen] = useState(false);
@@ -46,7 +48,6 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [profileCompletion, setProfileCompletion] = useState(100);
-  const [hasRequiredProfileData, setHasRequiredProfileData] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -96,17 +97,6 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
         userFormData
       );
       setProfileCompletion(completion);
-      setHasRequiredProfileData(
-        hasCompletedRequiredProfileFields(
-          {
-            whatsapp_number: profile?.whatsapp_number,
-            visa_country: profile?.visa_country,
-            visa_type: profile?.visa_type,
-          },
-          formFields,
-          userFormData
-        )
-      );
     }
     fetchProfile();
 
@@ -213,7 +203,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
       </div>
 
       {/* Profile Completion CTA */}
-      {!hasRequiredProfileData && (
+      {profileCompletion < PROFILE_CTA_MIN_COMPLETION && (
         <Card className="border-0 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-background">
           <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
             <div className="flex items-start gap-4 flex-1">
@@ -222,7 +212,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-sm">Complete your profile to get better interview results</p>
-                <p className="text-xs text-muted-foreground mt-1">Please fill all required fields first. Optional fields can be completed later.</p>
+                <p className="text-xs text-muted-foreground mt-1">Please complete at least {PROFILE_CTA_MIN_COMPLETION}% of your profile to continue.</p>
                 <div className="flex items-center gap-3 mt-3">
                   <Progress value={profileCompletion} className="h-2 flex-1 max-w-xs" />
                   <span className="text-sm font-bold text-amber-600">{profileCompletion}%</span>
@@ -230,7 +220,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
               </div>
             </div>
             <Link to="/profile/edit">
-              <Button size="sm" variant="default" className="w-full sm:w-auto shrink-0">Complete Profile</Button>
+              <Button size="sm" variant="default" className="w-full sm:w-auto shrink-0 bg-amber-400 text-amber-950 hover:bg-amber-300">Complete Profile</Button>
             </Link>
           </CardContent>
         </Card>

@@ -89,6 +89,7 @@ export default function Onboarding() {
         body: {
           file_base64: base64,
           file_type: file.type,
+          visa_type_id: visaTypeId,
           fields: formFields.map((field) => ({
             field_key: field.field_key,
             label: field.label,

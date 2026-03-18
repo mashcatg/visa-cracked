@@ -6,6 +6,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const jsonHeaders = {
+  ...corsHeaders,
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  Pragma: "no-cache",
+};
+
+function normalizeKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,7 +31,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -30,23 +45,26 @@ Deno.serve(async (req) => {
     if (authError || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
-    const { file_base64, file_type, fields } = await req.json();
+    const { file_base64, file_type, fields, visa_type_id } = await req.json();
     if (!file_base64) {
       return new Response(JSON.stringify({ error: "No file provided" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
-    if (!Array.isArray(fields) || fields.length === 0) {
-      return new Response(JSON.stringify({ error: "No dynamic fields provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let dynamicFieldsInput = Array.isArray(fields) ? fields : [];
+    if (dynamicFieldsInput.length === 0 && visa_type_id) {
+      const { data: fetchedFields } = await supabase
+        .from("visa_type_form_fields")
+        .select("field_key, label, field_type, options, is_required")
+        .eq("visa_type_id", visa_type_id)
+        .order("sort_order");
+      dynamicFieldsInput = fetchedFields || [];
     }
 
     // Step 1: Mistral OCR
@@ -54,7 +72,7 @@ Deno.serve(async (req) => {
     if (!MISTRAL_API_KEY) {
       return new Response(JSON.stringify({ error: "OCR service not configured" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -78,11 +96,10 @@ Deno.serve(async (req) => {
     });
 
     if (!ocrRes.ok) {
-      const errText = await ocrRes.text();
-      console.error("Mistral OCR error:", ocrRes.status, errText);
+      console.error("Mistral OCR error:", ocrRes.status);
       return new Response(JSON.stringify({ error: "OCR extraction failed" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -99,7 +116,7 @@ Deno.serve(async (req) => {
     if (!extractedText.trim()) {
       return new Response(JSON.stringify({ error: "No text could be extracted from the document" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -108,14 +125,14 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI service not configured" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
-    const sanitizedFields = fields
+    const sanitizedFields = dynamicFieldsInput
       .filter((field: any) => typeof field?.field_key === "string" && field.field_key.trim().length > 0)
       .map((field: any) => ({
-        field_key: String(field.field_key).trim(),
+        field_key: normalizeKey(String(field.field_key)),
         label: typeof field.label === "string" ? field.label : field.field_key,
         field_type: typeof field.field_type === "string" ? field.field_type : "text",
         options: Array.isArray(field.options) ? field.options : [],
@@ -125,7 +142,7 @@ Deno.serve(async (req) => {
     if (sanitizedFields.length === 0) {
       return new Response(JSON.stringify({ error: "No valid dynamic fields provided" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -177,7 +194,7 @@ Rules:
       console.error("AI gateway error:", aiRes.status, await aiRes.text());
       return new Response(JSON.stringify({ error: "Data extraction failed" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
 
@@ -191,25 +208,37 @@ Rules:
     } catch {
       return new Response(JSON.stringify({ error: "Failed to parse extracted data" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: jsonHeaders,
       });
     }
+
+    const structuredEntries = Object.entries(structured || {});
+    const structuredMap = new Map<string, string>();
+    structuredEntries.forEach(([key, value]) => {
+      structuredMap.set(normalizeKey(String(key)), typeof value === "string" ? value : value == null ? "" : String(value));
+    });
 
     const normalized = Object.fromEntries(
       sanitizedFields.map((field: any) => {
         const raw = structured?.[field.field_key];
-        return [field.field_key, typeof raw === "string" ? raw : raw == null ? "" : String(raw)];
+        if (typeof raw === "string") {
+          return [field.field_key, raw];
+        }
+        const mapped = structuredMap.get(field.field_key);
+        return [field.field_key, mapped ?? ""];
       })
     );
 
+    extractedText = "";
+
     return new Response(JSON.stringify(normalized), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   } catch (error) {
     console.error("extract-document error:", error);
     return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   }
 });

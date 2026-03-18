@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Loader2, AlertCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { calculateRequiredProfileCompletion, hasCompletedRequiredProfileFields } from "@/lib/profile-completion";
+import { calculateProfileCompletion } from "@/lib/profile-completion";
 import { Progress } from "@/components/ui/progress";
 
 const DIFFICULTY_CREDIT_COST: Record<string, number> = {
@@ -19,6 +19,8 @@ const DIFFICULTY_CREDIT_COST: Record<string, number> = {
   medium: 12,
   hard: 15,
 };
+
+const PROFILE_CTA_MIN_COMPLETION = 80;
 
 interface Props {
   open: boolean;
@@ -36,8 +38,7 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
   const [difficulty, setDifficulty] = useState("");
   const [loading, setLoading] = useState(false);
   const [credits, setCredits] = useState<number>(0);
-  const [requiredProfileCompletion, setRequiredProfileCompletion] = useState<number | null>(null);
-  const [hasRequiredProfileData, setHasRequiredProfileData] = useState(true);
+  const [profileCompletion, setProfileCompletion] = useState<number | null>(null);
   const [loadingCompletion, setLoadingCompletion] = useState(true);
 
   useEffect(() => {
@@ -66,8 +67,7 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
               userFormData = dataRes.data || [];
             }
           }
-          setRequiredProfileCompletion(calculateRequiredProfileCompletion(profile, formFields, userFormData));
-          setHasRequiredProfileData(hasCompletedRequiredProfileFields(profile, formFields, userFormData));
+          setProfileCompletion(calculateProfileCompletion(profile, formFields, userFormData));
         }
         setLoadingCompletion(false);
       }
@@ -146,26 +146,26 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
 
   const selectedDifficultyCost = DIFFICULTY_CREDIT_COST[difficulty] ?? 10;
   const hasEnoughCredits = credits >= selectedDifficultyCost;
-  const missingRequiredProfileData = !hasRequiredProfileData;
+  const profileNeedsCompletion = (profileCompletion ?? 0) < PROFILE_CTA_MIN_COMPLETION;
 
   return (
     <div className="space-y-4 py-4 px-1">
       {/* Profile completion gate */}
-      {!loadingCompletion && missingRequiredProfileData && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+      {!loadingCompletion && profileNeedsCompletion && (
+        <div className="rounded-lg bg-amber-500/5 p-4 space-y-3">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium">Required profile fields are missing</p>
-              <p className="text-xs text-muted-foreground mt-1">Please complete all required profile fields before starting a mock test.</p>
+              <p className="text-xs text-muted-foreground mt-1">Please complete at least {PROFILE_CTA_MIN_COMPLETION}% of your profile before starting a mock test.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Progress value={requiredProfileCompletion ?? 0} className="h-2 flex-1" />
-            <span className="text-xs font-bold text-amber-600">{requiredProfileCompletion ?? 0}%</span>
+            <Progress value={profileCompletion ?? 0} className="h-2 flex-1" />
+            <span className="text-xs font-bold text-amber-600">{profileCompletion ?? 0}%</span>
           </div>
           <Link to="/profile/edit" onClick={() => onOpenChange(false)}>
-            <Button size="sm" variant="outline" className="w-full">Complete Profile</Button>
+            <Button size="sm" variant="default" className="w-full bg-amber-400 text-amber-950 hover:bg-amber-300">Complete Profile</Button>
           </Link>
         </div>
       )}
@@ -210,7 +210,7 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
       <Button
         onClick={handleSubmit}
         className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
-        disabled={loading || !hasEnoughCredits || !difficulty || missingRequiredProfileData}
+        disabled={loading || !hasEnoughCredits || !difficulty || profileNeedsCompletion}
       >
         {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : `Start Mock Test (${selectedDifficultyCost} Credits)`}
       </Button>

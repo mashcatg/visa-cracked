@@ -73,7 +73,7 @@ const plans: PlanDef[] = [
     usd: 54,
     originalBdt: 9000,
     originalUsd: 90,
-    badge: "40% OFF",
+    badge: "Exclussive Offer",
     popular: false,
     features: ["5 Human Interviews", "10 AI Mock Tests", "Document Fill-up Guidance (DS-160, Sevis, CGI Portal)", "Expert Feedback", "Personalized Tips", "Lifetime Access"],
   },
@@ -235,8 +235,7 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
             ? applyDiscount(basePrice, appliedCoupon.discount_type, appliedCoupon.discount_type === "fixed" && currency === "USD" ? Math.round(appliedCoupon.discount_amount * (plan.usd / plan.bdt)) : appliedCoupon.discount_amount)
             : basePrice;
           const hasDiscount = originalPrice > finalPrice;
-          const effectiveMocks = plan.name === "Ultimate" ? 15 : plan.mocks;
-          const approxCostPerMock = effectiveMocks > 0 ? Math.round(finalPrice / effectiveMocks) : finalPrice;
+          const baseDiscountPercent = originalPrice > basePrice ? Math.round(((originalPrice - basePrice) / originalPrice) * 100) : 0;
 
           return (
             <div
@@ -261,17 +260,6 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
               <h3 className="font-bold text-lg">{plan.name}</h3>
               <p className="text-xs text-muted-foreground mb-4">{plan.subtitle}</p>
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="rounded-lg bg-muted/40 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Credits</p>
-                  <p className="text-sm font-semibold">{plan.credits}</p>
-                </div>
-                <div className="rounded-lg bg-muted/40 px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Est / Mock</p>
-                  <p className="text-sm font-semibold">{currencySymbol}{formatPrice(approxCostPerMock)}</p>
-                </div>
-              </div>
-
               <div className="mb-1">
                 {hasDiscount && (
                   <span className="text-xl line-through text-muted-foreground mr-2">{currencySymbol}{formatPrice(originalPrice)}</span>
@@ -279,6 +267,9 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
                 <span className={cn("text-3xl font-extrabold tracking-tight", currency === "USD" ? "text-primary" : "text-foreground")}>{currencySymbol}{formatPrice(finalPrice)}</span>
               </div>
               <p className="text-xs text-muted-foreground mb-5">/pack</p>
+              {baseDiscountPercent > 0 && (
+                <p className="text-xs font-semibold text-amber-600 mb-5">{baseDiscountPercent}% OFF</p>
+              )}
               <ul className="space-y-2.5 flex-1 mb-6">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-center gap-2.5 text-sm">

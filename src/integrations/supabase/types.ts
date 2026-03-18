@@ -152,6 +152,7 @@ export type Database = {
           difficulty: string
           id: string
           judgment_system_prompt: string | null
+          output_structure: Json | null
           vapi_assistant_id: string | null
           vapi_private_key: string | null
           vapi_public_key: string | null
@@ -162,6 +163,7 @@ export type Database = {
           difficulty: string
           id?: string
           judgment_system_prompt?: string | null
+          output_structure?: Json | null
           vapi_assistant_id?: string | null
           vapi_private_key?: string | null
           vapi_public_key?: string | null
@@ -172,6 +174,7 @@ export type Database = {
           difficulty?: string
           id?: string
           judgment_system_prompt?: string | null
+          output_structure?: Json | null
           vapi_assistant_id?: string | null
           vapi_private_key?: string | null
           vapi_public_key?: string | null
@@ -521,6 +524,88 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_visa_form_data: {
+        Row: {
+          created_at: string
+          field_key: string
+          field_value: string | null
+          id: string
+          user_id: string
+          visa_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_key: string
+          field_value?: string | null
+          id?: string
+          user_id: string
+          visa_type_id: string
+        }
+        Update: {
+          created_at?: string
+          field_key?: string
+          field_value?: string | null
+          id?: string
+          user_id?: string
+          visa_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_visa_form_data_visa_type_id_fkey"
+            columns: ["visa_type_id"]
+            isOneToOne: false
+            referencedRelation: "visa_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visa_type_form_fields: {
+        Row: {
+          created_at: string
+          field_key: string
+          field_type: string
+          id: string
+          is_required: boolean
+          label: string
+          options: Json | null
+          placeholder: string | null
+          sort_order: number
+          visa_type_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_key: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          label: string
+          options?: Json | null
+          placeholder?: string | null
+          sort_order?: number
+          visa_type_id: string
+        }
+        Update: {
+          created_at?: string
+          field_key?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          label?: string
+          options?: Json | null
+          placeholder?: string | null
+          sort_order?: number
+          visa_type_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visa_type_form_fields_visa_type_id_fkey"
+            columns: ["visa_type_id"]
+            isOneToOne: false
+            referencedRelation: "visa_types"
+            referencedColumns: ["id"]
           },
         ]
       }

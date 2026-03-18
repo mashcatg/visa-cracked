@@ -457,7 +457,7 @@ export default function AdminVisaTypes() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Field Key</Label>
-                          <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. university_name" className="text-sm font-mono" />
+                          <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. sponsor_name" className="text-sm font-mono" />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Type</Label>

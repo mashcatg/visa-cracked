@@ -396,10 +396,6 @@ export type Database = {
           instagram_url: string | null
           linkedin_url: string | null
           onboarding_completed: boolean
-          program_name: string | null
-          sevis_id: string | null
-          start_date: string | null
-          university_name: string | null
           updated_at: string
           user_id: string
           visa_country: string | null
@@ -417,10 +413,6 @@ export type Database = {
           instagram_url?: string | null
           linkedin_url?: string | null
           onboarding_completed?: boolean
-          program_name?: string | null
-          sevis_id?: string | null
-          start_date?: string | null
-          university_name?: string | null
           updated_at?: string
           user_id: string
           visa_country?: string | null
@@ -438,10 +430,6 @@ export type Database = {
           instagram_url?: string | null
           linkedin_url?: string | null
           onboarding_completed?: boolean
-          program_name?: string | null
-          sevis_id?: string | null
-          start_date?: string | null
-          university_name?: string | null
           updated_at?: string
           user_id?: string
           visa_country?: string | null
@@ -569,9 +557,11 @@ export type Database = {
           field_type: string
           id: string
           is_required: boolean
+          layout_width: string
           label: string
           options: Json | null
           placeholder: string | null
+          section_title: string | null
           sort_order: number
           visa_type_id: string
         }
@@ -581,9 +571,11 @@ export type Database = {
           field_type?: string
           id?: string
           is_required?: boolean
+          layout_width?: string
           label: string
           options?: Json | null
           placeholder?: string | null
+          section_title?: string | null
           sort_order?: number
           visa_type_id: string
         }
@@ -593,9 +585,11 @@ export type Database = {
           field_type?: string
           id?: string
           is_required?: boolean
+          layout_width?: string
           label?: string
           options?: Json | null
           placeholder?: string | null
+          section_title?: string | null
           sort_order?: number
           visa_type_id?: string
         }

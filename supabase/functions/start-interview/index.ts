@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -59,13 +59,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Fetch profile data
-    const { data: profile } = await serviceClient
-      .from("profiles")
-      .select("university_name, program_name, sevis_id, visa_country, visa_type, start_date")
-      .eq("user_id", user.id)
-      .single();
 
     // Fetch dynamic form data for user's visa type
     let dynamicFormData: Record<string, string> = {};
@@ -123,14 +116,8 @@ Deno.serve(async (req) => {
       .update({ status: "in_progress" })
       .eq("id", interviewId);
 
-    // Build variableValues from profile + dynamic form data
+    // Build variableValues only from dynamic visa form data
     const variableValues: Record<string, string> = {
-      university: profile?.university_name || "",
-      program: profile?.program_name || "",
-      sevis_id: profile?.sevis_id || "",
-      visa_country: profile?.visa_country || "",
-      visa_type: profile?.visa_type || "",
-      start_date: profile?.start_date || "",
       ...dynamicFormData,
     };
 
@@ -138,9 +125,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ publicKey: vapiPublicKey, assistantId, variableValues }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Internal server error";
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

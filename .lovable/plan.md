@@ -46,7 +46,6 @@ NEW:      Country -> Visa Type -> Difficulty (Easy/Medium/Hard, has VAPI creds) 
 
 - `whatsapp_number`, `facebook_url`, `linkedin_url`, `instagram_url`
 - `onboarding_completed` (boolean, default false)
-- `university_name`, `program_name`, `sevis_id`, `visa_country`, `visa_type`, `start_date`
 
 ---
 
@@ -90,7 +89,7 @@ Redirects to `/onboarding` if `onboarding_completed` is false.
 1. Receives base64 document
 2. Mistral OCR (`mistral-ocr-latest`) extracts text
 3. Gemini 2.5 Flash structures data into profile fields
-4. Returns JSON with university_name, program_name, sevis_id, etc.
+4. Returns only dynamic data (added by admins as form filed from the admin panel)
 
 ---
 

@@ -189,7 +189,7 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
   const statCards = [
     { title: "Total Mock Tests", value: stats.total, icon: FileText, description: "All time" },
     { title: "Average Score", value: stats.avgScore, icon: Target, description: "Out of 100" },
-    { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, description: "Score ≥ 60" },
+    { title: "Pass Rate", value: `${stats.passRate}%`, icon: TrendingUp, description: "Score ≥ 70" },
   ];
 
   return (

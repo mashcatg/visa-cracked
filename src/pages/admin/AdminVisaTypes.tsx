@@ -40,6 +40,7 @@ type DifficultyMode = {
 
 type FormField = {
   id?: string;
+  item_type?: "field" | "section";
   label: string;
   field_key: string;
   field_type: string;
@@ -64,6 +65,15 @@ function getGridLabel(value: "1" | "2" | "3" | "4") {
   return "1 Grid";
 }
 
+function getEffectiveSectionTitle(items: FormField[], index: number) {
+  for (let cursor = index; cursor >= 0; cursor -= 1) {
+    if (items[cursor]?.item_type === "section") {
+      return items[cursor].section_title?.trim() || "General";
+    }
+  }
+  return "General";
+}
+
 export default function AdminVisaTypes() {
   const isMobile = useIsMobile();
   const [visaTypes, setVisaTypes] = useState<any[]>([]);
@@ -83,7 +93,7 @@ export default function AdminVisaTypes() {
   const [savingMode, setSavingMode] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
-  const [sectionTitle, setSectionTitle] = useState("");
+  const [newSectionTitle, setNewSectionTitle] = useState("");
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
   const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
   const [openFieldIndex, setOpenFieldIndex] = useState<number | null>(null);
@@ -145,8 +155,9 @@ export default function AdminVisaTypes() {
   async function openFields(vt: any) {
     setFieldsVisaType(vt);
     const { data } = await supabase.from("visa_type_form_fields").select("*").eq("visa_type_id", vt.id).order("sort_order");
-    const mapped = (data || []).map((f: any) => ({
+    const dbFields = (data || []).map((f: any) => ({
       id: f.id,
+      item_type: "field" as const,
       label: f.label,
       field_key: f.field_key,
       field_type: f.field_type,
@@ -157,8 +168,31 @@ export default function AdminVisaTypes() {
       section_title: f.section_title || "",
       layout_width: normalizeLayoutWidth(f.layout_width),
     }));
-    setFormFields(mapped);
-    setSectionTitle((mapped.find((f) => f.section_title.trim())?.section_title || "").trim());
+
+    const rebuilt: FormField[] = [];
+    let lastSection = "";
+    for (const field of dbFields) {
+      const section = (field.section_title || "").trim();
+      if (section && section !== lastSection) {
+        rebuilt.push({
+          item_type: "section",
+          label: "",
+          field_key: "",
+          field_type: "text",
+          placeholder: "",
+          is_required: false,
+          sort_order: rebuilt.length,
+          options: [],
+          section_title: section,
+          layout_width: "1",
+        });
+        lastSection = section;
+      }
+      rebuilt.push(field);
+    }
+
+    setFormFields(rebuilt);
+    setNewSectionTitle("");
     setOpenFieldIndex(null);
     setFieldsDialogOpen(true);
   }
@@ -200,9 +234,32 @@ export default function AdminVisaTypes() {
 
   function addFormField() {
     setFormFields(prev => [...prev, {
-      label: "", field_key: "", field_type: "text", placeholder: "", is_required: false, sort_order: prev.length, options: [], section_title: sectionTitle, layout_width: "1",
+      item_type: "field",
+      label: "", field_key: "", field_type: "text", placeholder: "", is_required: false, sort_order: prev.length, options: [], section_title: "", layout_width: "1",
     }]);
     setOpenFieldIndex(formFields.length);
+  }
+
+  function addSection() {
+    const title = newSectionTitle.trim();
+    if (!title) {
+      toast.error("Section title is required");
+      return;
+    }
+
+    setFormFields((prev) => [...prev, {
+      item_type: "section",
+      label: "",
+      field_key: "",
+      field_type: "text",
+      placeholder: "",
+      is_required: false,
+      sort_order: prev.length,
+      options: [],
+      section_title: title,
+      layout_width: "1",
+    }]);
+    setNewSectionTitle("");
   }
 
   function updateFormField(index: number, field: string, value: any) {
@@ -237,8 +294,10 @@ export default function AdminVisaTypes() {
 
   async function handleSaveFields() {
     if (!fieldsVisaType) return;
+    const fieldItems = formFields.filter((item) => item.item_type !== "section");
+
     // Validate
-    for (const f of formFields) {
+    for (const f of fieldItems) {
       if (!f.label.trim() || !f.field_key.trim()) {
         toast.error("Label and Field Key are required for all fields");
         return;
@@ -249,19 +308,29 @@ export default function AdminVisaTypes() {
     // Delete existing fields and re-insert
     await supabase.from("visa_type_form_fields").delete().eq("visa_type_id", fieldsVisaType.id);
 
-    if (formFields.length > 0) {
-      const inserts = formFields.map((f, i) => ({
+    if (fieldItems.length > 0) {
+      const inserts: any[] = [];
+      let currentSection = "";
+      for (const item of formFields) {
+        if (item.item_type === "section") {
+          currentSection = item.section_title.trim();
+          continue;
+        }
+
+        inserts.push({
         visa_type_id: fieldsVisaType.id,
-        label: f.label,
-        field_key: f.field_key,
-        field_type: f.field_type,
-        placeholder: f.placeholder || null,
-        is_required: f.is_required,
-        sort_order: i,
-        options: f.field_type === "select" ? f.options : null,
-        section_title: sectionTitle.trim() || null,
-        layout_width: f.layout_width || "1",
-      }));
+          label: item.label,
+          field_key: item.field_key,
+          field_type: item.field_type,
+          placeholder: item.placeholder || null,
+          is_required: item.is_required,
+          sort_order: inserts.length,
+          options: item.field_type === "select" ? item.options : null,
+          section_title: currentSection || null,
+          layout_width: item.layout_width || "1",
+        });
+      }
+
       const { error } = await supabase.from("visa_type_form_fields").insert(inserts);
       if (error) { toast.error(error.message); setSavingFields(false); return; }
     }
@@ -442,14 +511,61 @@ export default function AdminVisaTypes() {
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
               <div className="space-y-1">
-                <Label className="text-xs">Section Title</Label>
-                <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
+                <Label className="text-xs">New Section Title</Label>
+                <Input value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
               </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}
               {formFields.length > 0 && formFields.map((field, index) => {
                 const isOpen = openFieldIndex === index;
+                if (field.item_type === "section") {
+                  return (
+                    <div
+                      key={field.id ?? `section-${index}-${field.section_title || "new"}`}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 transition-all bg-muted/30",
+                        dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
+                      )}
+                      draggable
+                      onDragStart={() => setDraggingFieldIndex(index)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverFieldIndex(index);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggingFieldIndex !== null) {
+                          moveFormField(draggingFieldIndex, index);
+                        }
+                        setDraggingFieldIndex(null);
+                        setDragOverFieldIndex(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingFieldIndex(null);
+                        setDragOverFieldIndex(null);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Badge variant="secondary" className="text-[10px]">Section</Badge>
+                        <div className="flex-1 min-w-0">
+                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} placeholder="Section title" className="h-8 text-sm" />
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={field.id ?? `field-${index}-${field.field_key || "new"}`}
@@ -500,7 +616,7 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {sectionTitle || "General"} • {getGridLabel(field.layout_width)}
+                        {getEffectiveSectionTitle(formFields, index)} • {getGridLabel(field.layout_width)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -559,9 +675,10 @@ export default function AdminVisaTypes() {
               })}
             </div>
             <div className="sticky bottom-0 left-0 right-0 bg-background border-t p-3 flex gap-2">
+              <Button variant="outline" onClick={addSection} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Title</Button>
               <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
               <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">
-                {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Fields</>}
+                {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Changes</>}
               </Button>
             </div>
           </SheetContent>
@@ -573,14 +690,61 @@ export default function AdminVisaTypes() {
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
               <div className="space-y-1">
-                <Label className="text-xs">Section Title</Label>
-                <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
+                <Label className="text-xs">New Section Title</Label>
+                <Input value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
               </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}
               {formFields.length > 0 && formFields.map((field, index) => {
                 const isOpen = openFieldIndex === index;
+                if (field.item_type === "section") {
+                  return (
+                    <div
+                      key={field.id ?? `section-${index}-${field.section_title || "new"}`}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 transition-all bg-muted/30",
+                        dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
+                      )}
+                      draggable
+                      onDragStart={() => setDraggingFieldIndex(index)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverFieldIndex(index);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggingFieldIndex !== null) {
+                          moveFormField(draggingFieldIndex, index);
+                        }
+                        setDraggingFieldIndex(null);
+                        setDragOverFieldIndex(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggingFieldIndex(null);
+                        setDragOverFieldIndex(null);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <Badge variant="secondary" className="text-[10px]">Section</Badge>
+                        <div className="flex-1 min-w-0">
+                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} placeholder="Section title" className="h-8 text-sm" />
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={field.id ?? `field-${index}-${field.field_key || "new"}`}
@@ -631,7 +795,7 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {sectionTitle || "General"} • {getGridLabel(field.layout_width)}
+                        {getEffectiveSectionTitle(formFields, index)} • {getGridLabel(field.layout_width)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -689,9 +853,10 @@ export default function AdminVisaTypes() {
                 );
               })}
               <div className="sticky bottom-0 left-0 right-0 bg-background border-t p-3 flex gap-2">
+                <Button variant="outline" onClick={addSection} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Title</Button>
                 <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
                 <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">
-                  {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Fields</>}
+                  {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Changes</>}
                 </Button>
               </div>
             </div>

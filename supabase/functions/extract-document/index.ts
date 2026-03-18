@@ -187,19 +187,10 @@ Deno.serve(async (req: Request) => {
       })
       .join("\n");
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `You are a data extraction assistant. Extract structured information from document text.
+    const baseMessages = [
+      {
+        role: "system",
+        content: `You are a data extraction assistant. Extract structured information from document text.
 
 Return ONLY a valid JSON object with EXACTLY these keys (use empty string if not found):
 ${JSON.stringify(schemaExample, null, 2)}
@@ -213,27 +204,79 @@ Rules:
 - For date fields, prefer YYYY-MM-DD when possible.
 - For select fields, choose the closest matching option from provided options.
 - Do NOT include markdown, code blocks, or explanations. Return ONLY JSON.`,
-          },
-          {
-            role: "user",
-            content: `Extract data from this document:\n\n${extractedText.slice(0, 8000)}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 1024,
-      }),
+      },
+      {
+        role: "user",
+        content: `Extract data from this document:\n\n${extractedText.slice(0, 12000)}`,
+      },
+    ];
+
+    const requestWithJsonMode = {
+      model: "google/gemini-2.5-flash",
+      response_format: { type: "json_object" },
+      messages: baseMessages,
+      temperature: 0,
+      max_tokens: 1600,
+    };
+
+    const requestWithoutJsonMode = {
+      model: "google/gemini-2.5-flash",
+      messages: baseMessages,
+      temperature: 0,
+      max_tokens: 1600,
+    };
+
+    let aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestWithJsonMode),
     });
 
     if (!aiRes.ok) {
-      console.error("AI gateway error:", aiRes.status, await aiRes.text());
-      return new Response(JSON.stringify({ error: "Data extraction failed" }), {
+      const firstError = await aiRes.text();
+      console.error("AI gateway error (json mode):", aiRes.status, firstError.slice(0, 1000));
+
+      aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestWithoutJsonMode),
+      });
+
+      if (!aiRes.ok) {
+        const secondError = await aiRes.text();
+        console.error("AI gateway error (fallback):", aiRes.status, secondError.slice(0, 1000));
+        return new Response(JSON.stringify({
+          error: "Data extraction failed",
+          details: `AI gateway failed. json_mode_status=failed, fallback_status=${aiRes.status}`,
+        }), {
+          status: 500,
+          headers: jsonHeaders,
+        });
+      }
+    }
+
+    const aiData = await aiRes.json();
+    const content = aiData.choices?.[0]?.message?.content;
+    let text = typeof content === "string"
+      ? content
+      : Array.isArray(content)
+        ? content.map((part: any) => (typeof part?.text === "string" ? part.text : "")).join("\n")
+        : "";
+
+    if (!text.trim()) {
+      console.error("AI extraction empty content:", JSON.stringify(aiData).slice(0, 1200));
+      return new Response(JSON.stringify({ error: "Data extraction failed", details: "AI returned empty content" }), {
         status: 500,
         headers: jsonHeaders,
       });
     }
 
-    const aiData = await aiRes.json();
-    let text = aiData.choices?.[0]?.message?.content || "";
     text = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
 
     let structured;

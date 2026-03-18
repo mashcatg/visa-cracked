@@ -91,17 +91,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch judgment system prompt from difficulty_modes if available
+    // Fetch judgment system prompt and output structure from difficulty_modes if available
     let customJudgmentPrompt: string | null = null;
+    let outputStructure: any = null;
     if (interview.difficulty && interview.visa_type_id) {
       const { data: mode } = await serviceClient
         .from("difficulty_modes")
-        .select("judgment_system_prompt")
+        .select("judgment_system_prompt, output_structure")
         .eq("visa_type_id", interview.visa_type_id)
         .eq("difficulty", interview.difficulty)
         .single();
       if (mode?.judgment_system_prompt) {
         customJudgmentPrompt = mode.judgment_system_prompt;
+      }
+      if (mode?.output_structure) {
+        outputStructure = mode.output_structure;
       }
     }
 

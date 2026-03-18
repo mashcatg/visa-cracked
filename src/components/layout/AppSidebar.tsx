@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Zap, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift, Download } from "lucide-react";
+import { LayoutDashboard, Search, Plus, FileText, Shield, LogOut, Zap, PanelLeftClose, PanelLeft, Menu, MoreVertical, Share2, Pencil, Trash2, ChevronRight, Sun, Moon, User, Lock, Gift, Download, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import sidebarLogo from "@/assets/visa-cracked-dark-logo.png";
@@ -20,6 +20,43 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
 import ReferralModal from "@/components/referral/ReferralModal";
+import { calculateProfileCompletion } from "@/lib/profile-completion";
+
+function ProfileCompletionBadge({ userId }: { userId?: string }) {
+  const [completion, setCompletion] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    async function load() {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("whatsapp_number, facebook_url, linkedin_url, instagram_url, visa_type")
+        .eq("user_id", userId!)
+        .single();
+      if (!profile) return;
+
+      let formFields: any[] = [];
+      let userFormData: any[] = [];
+      if (profile.visa_type) {
+        const { data: vt } = await supabase.from("visa_types").select("id").eq("name", profile.visa_type).limit(1).single();
+        if (vt) {
+          const [f, d] = await Promise.all([
+            supabase.from("visa_type_form_fields").select("field_key, is_required").eq("visa_type_id", vt.id),
+            supabase.from("user_visa_form_data").select("field_key, field_value").eq("user_id", userId!).eq("visa_type_id", vt.id),
+          ]);
+          formFields = f.data || [];
+          userFormData = d.data || [];
+        }
+      }
+      setCompletion(calculateProfileCompletion(profile, formFields, userFormData));
+    }
+    load();
+  }, [userId]);
+
+  if (completion === null) return null;
+  if (completion >= 100) return <CheckCircle2 className="h-3.5 w-3.5 ml-auto text-emerald-500" />;
+  return <span className="ml-auto text-[10px] font-bold text-amber-500">{completion}%</span>;
+}
 
 interface AppSidebarProps {
   onSearchOpen: () => void;
@@ -383,6 +420,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/profile/edit")} className="cursor-pointer">
               <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
+              <ProfileCompletionBadge userId={user?.id} />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
               <Lock className="h-3.5 w-3.5 mr-2" /> Change Password

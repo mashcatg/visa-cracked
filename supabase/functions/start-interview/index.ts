@@ -1,4 +1,4 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,11 +60,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch profile data
     const { data: profile } = await serviceClient
       .from("profiles")
       .select("university_name, program_name, sevis_id, visa_country, visa_type, start_date")
       .eq("user_id", user.id)
       .single();
+
+    // Fetch dynamic form data for user's visa type
+    let dynamicFormData: Record<string, string> = {};
+    if (interview.visa_type_id) {
+      const { data: formData } = await serviceClient
+        .from("user_visa_form_data")
+        .select("field_key, field_value")
+        .eq("user_id", user.id)
+        .eq("visa_type_id", interview.visa_type_id);
+
+      if (formData) {
+        for (const entry of formData) {
+          if (entry.field_value) {
+            dynamicFormData[entry.field_key] = entry.field_value;
+          }
+        }
+      }
+    }
 
     let vapiPublicKey: string | null = null;
     let assistantId: string | null = null;
@@ -104,13 +123,15 @@ Deno.serve(async (req) => {
       .update({ status: "in_progress" })
       .eq("id", interviewId);
 
-    const variableValues = {
+    // Build variableValues from profile + dynamic form data
+    const variableValues: Record<string, string> = {
       university: profile?.university_name || "",
       program: profile?.program_name || "",
       sevis_id: profile?.sevis_id || "",
       visa_country: profile?.visa_country || "",
       visa_type: profile?.visa_type || "",
       start_date: profile?.start_date || "",
+      ...dynamicFormData,
     };
 
     return new Response(

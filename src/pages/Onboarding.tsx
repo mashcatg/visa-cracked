@@ -8,10 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Upload, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { Loader2, Upload, ArrowRight, ArrowLeft } from "lucide-react";
 import logoAlt from "@/assets/logo-alt.png";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3;
 
 interface FormField {
   id: string;
@@ -33,21 +33,21 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Step 1: Social
-  const [whatsapp, setWhatsapp] = useState("");
-  const [facebook, setFacebook] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [instagram, setInstagram] = useState("");
-
-  // Step 2: Country + Visa Type
+  // Step 1: Country + Visa Type
   const [countries, setCountries] = useState<any[]>([]);
   const [visaTypes, setVisaTypes] = useState<any[]>([]);
   const [countryId, setCountryId] = useState("");
   const [visaTypeId, setVisaTypeId] = useState("");
 
-  // Step 3: Dynamic form
+  // Step 2: Dynamic form
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formData, setFormData] = useState<Record<string, string>>({});
+
+  // Step 3: Contact & Social
+  const [whatsapp, setWhatsapp] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [instagram, setInstagram] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -84,7 +84,17 @@ export default function Onboarding() {
     try {
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke("extract-document", {
-        body: { file_base64: base64, file_type: file.type },
+        body: {
+          file_base64: base64,
+          file_type: file.type,
+          fields: formFields.map((field) => ({
+            field_key: field.field_key,
+            label: field.label,
+            field_type: field.field_type,
+            options: field.options,
+            is_required: field.is_required,
+          })),
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -108,14 +118,14 @@ export default function Onboarding() {
 
   async function handleComplete() {
     if (!user) return;
-    if (!whatsapp.trim()) { toast.error("WhatsApp number is required"); setStep(1); return; }
-    if (!visaTypeId) { toast.error("Please select a visa type"); setStep(2); return; }
+    if (!whatsapp.trim()) { toast.error("WhatsApp number is required"); setStep(3); return; }
+    if (!countryId || !visaTypeId) { toast.error("Please select country and visa type"); setStep(1); return; }
 
     // Validate required fields
     const missingRequired = formFields.filter(f => f.is_required && !formData[f.field_key]?.trim());
     if (missingRequired.length > 0) {
       toast.error(`Please fill required field: ${missingRequired[0].label}`);
-      setStep(3);
+      setStep(2);
       return;
     }
 
@@ -144,7 +154,15 @@ export default function Onboarding() {
         field_key: f.field_key,
         field_value: formData[f.field_key] || null,
       }));
-      await supabase.from("user_visa_form_data").upsert(upserts, { onConflict: "user_id,visa_type_id,field_key" });
+      const { error: dynamicError } = await supabase
+        .from("user_visa_form_data")
+        .upsert(upserts, { onConflict: "user_id,visa_type_id,field_key" });
+
+      if (dynamicError) {
+        toast.error("Failed to save visa details");
+        setLoading(false);
+        return;
+      }
     }
 
     toast.success("Profile setup complete!");
@@ -178,9 +196,9 @@ export default function Onboarding() {
         <div className="text-center mb-8">
           <img src={logoAlt} alt="Visa Cracked" className="h-10 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Complete Your Profile</h1>
-          <p className="text-muted-foreground text-sm mt-1">Step {step} of 4</p>
+          <p className="text-muted-foreground text-sm mt-1">Step {step} of 3</p>
           <div className="flex gap-2 justify-center mt-3">
-            {[1, 2, 3, 4].map((s) => (
+            {[1, 2, 3].map((s) => (
               <div key={s} className={`h-1.5 w-12 rounded-full transition-colors ${s <= step ? "bg-accent" : "bg-muted"}`} />
             ))}
           </div>
@@ -188,23 +206,6 @@ export default function Onboarding() {
 
         <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
           {step === 1 && (
-            <div className="space-y-4">
-              <h2 className="font-semibold text-lg text-foreground">Contact & Social</h2>
-              <div className="space-y-2">
-                <Label>WhatsApp Number <span className="text-destructive">*</span></Label>
-                <Input className={borderlessInputClass} value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+8801XXXXXXXXX" />
-              </div>
-              <div className="space-y-2"><Label>Facebook URL</Label><Input className={borderlessInputClass} value={facebook} onChange={e => setFacebook(e.target.value)} placeholder="https://facebook.com/your.profile" /></div>
-              <div className="space-y-2"><Label>LinkedIn URL</Label><Input className={borderlessInputClass} value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/your-profile" /></div>
-              <div className="space-y-2"><Label>Instagram URL</Label><Input className={borderlessInputClass} value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="https://instagram.com/your.handle" /></div>
-              <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
-                if (!whatsapp.trim()) { toast.error("WhatsApp number is required"); return; }
-                setStep(2);
-              }}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
-            </div>
-          )}
-
-          {step === 2 && (
             <div className="space-y-4">
               <h2 className="font-semibold text-lg text-foreground">Select Country & Visa Type</h2>
               <div className="space-y-2">
@@ -221,17 +222,14 @@ export default function Onboarding() {
                   <SelectContent>{visaTypes.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
-                  if (!visaTypeId) { toast.error("Please select a visa type"); return; }
-                  setStep(3);
-                }}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
-              </div>
+              <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
+                if (!countryId || !visaTypeId) { toast.error("Please select country and visa type"); return; }
+                setStep(2);
+              }}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <div className="space-y-4">
               <h2 className="font-semibold text-lg text-foreground">Visa Details</h2>
               {formFields.length > 0 ? (
@@ -263,49 +261,39 @@ export default function Onboarding() {
                 <p className="text-sm text-muted-foreground py-4 text-center">No additional fields required for this visa type. Click Next to continue.</p>
               )}
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setStep(4)}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
+                  const missingRequired = formFields.filter(f => f.is_required && !formData[f.field_key]?.trim());
+                  if (missingRequired.length > 0) {
+                    toast.error(`Please fill required field: ${missingRequired[0].label}`);
+                    return;
+                  }
+                  setStep(3);
+                }}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
               </div>
             </div>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <div className="space-y-4">
-              <h2 className="font-semibold text-lg text-foreground">Review & Confirm</h2>
-              <div className="space-y-3 text-sm">
-                <ReviewItem label="WhatsApp" value={whatsapp} required />
-                <ReviewItem label="Facebook" value={facebook} />
-                <ReviewItem label="LinkedIn" value={linkedin} />
-                <ReviewItem label="Instagram" value={instagram} />
-                <div className="h-px bg-border" />
-                <ReviewItem label="Country" value={countries.find(c => c.id === countryId)?.name || ""} />
-                <ReviewItem label="Visa Type" value={visaTypes.find(v => v.id === visaTypeId)?.name || ""} />
-                {formFields.length > 0 && <>
-                  <div className="h-px bg-border" />
-                  {formFields.map(f => <ReviewItem key={f.field_key} label={f.label} value={formData[f.field_key] || ""} required={f.is_required} />)}
-                </>}
+              <h2 className="font-semibold text-lg text-foreground">Contact & Social</h2>
+              <div className="space-y-2">
+                <Label>WhatsApp Number <span className="text-destructive">*</span></Label>
+                <Input className={borderlessInputClass} value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+8801XXXXXXXXX" />
               </div>
+              <div className="space-y-2"><Label>Facebook URL</Label><Input className={borderlessInputClass} value={facebook} onChange={e => setFacebook(e.target.value)} placeholder="https://facebook.com/your.profile" /></div>
+              <div className="space-y-2"><Label>LinkedIn URL</Label><Input className={borderlessInputClass} value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/your-profile" /></div>
+              <div className="space-y-2"><Label>Instagram URL</Label><Input className={borderlessInputClass} value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="https://instagram.com/your.handle" /></div>
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(3)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
                 <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleComplete} disabled={loading}>
-                  {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Check className="mr-2 h-4 w-4" /> Complete Setup</>}
+                  {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Complete Setup"}
                 </Button>
               </div>
             </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ReviewItem({ label, value, required }: { label: string; value: string; required?: boolean }) {
-  return (
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`font-medium ${!value && required ? "text-destructive" : "text-foreground"}`}>
-        {value || (required ? "Required!" : "—")}
-      </span>
     </div>
   );
 }

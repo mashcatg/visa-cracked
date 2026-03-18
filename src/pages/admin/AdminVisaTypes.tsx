@@ -6,14 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus, Pencil, Settings2, Save, Loader2, ListChecks, GripVertical } from "lucide-react";
+import { Trash2, Plus, Pencil, Settings2, Save, Loader2, ListChecks, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { Tables } from "@/integrations/supabase/types";
 import DataTableControls from "@/components/admin/DataTableControls";
 import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 const DIFFICULTIES = ["easy", "medium", "hard"] as const;
@@ -65,6 +67,7 @@ export default function AdminVisaTypes() {
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
+  const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
 
   async function fetchData() {
     const [vt, c] = await Promise.all([
@@ -194,6 +197,16 @@ export default function AdminVisaTypes() {
       next.splice(toIndex, 0, moved);
       return next;
     });
+  }
+
+  function moveFieldUp(index: number) {
+    if (index <= 0) return;
+    moveFormField(index, index - 1);
+  }
+
+  function moveFieldDown(index: number) {
+    if (index >= formFields.length - 1) return;
+    moveFormField(index, index + 1);
   }
 
   async function handleSaveFields() {
@@ -350,65 +363,98 @@ export default function AdminVisaTypes() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader><DialogTitle>Form Fields — {fieldsVisaType?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+            <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
             {formFields.length === 0 && (
               <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
             )}
-            {formFields.map((field, index) => (
-              <div
-                key={field.id ?? `field-${index}-${field.field_key || "new"}`}
-                className="rounded-lg border p-3 space-y-2"
-                draggable
-                onDragStart={() => setDraggingFieldIndex(index)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (draggingFieldIndex !== null) {
-                    moveFormField(draggingFieldIndex, index);
-                  }
-                  setDraggingFieldIndex(null);
-                }}
-                onDragEnd={() => setDraggingFieldIndex(null)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeFormField(index)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Label</Label>
-                    <Input value={field.label} onChange={e => updateFormField(index, "label", e.target.value)} placeholder="e.g. University Name" className="text-sm" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Field Key</Label>
-                    <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. university_name" className="text-sm font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Type</Label>
-                    <Select value={field.field_type} onValueChange={v => updateFormField(index, "field_type", v)}>
-                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>{FIELD_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Placeholder</Label>
-                    <Input value={field.placeholder} onChange={e => updateFormField(index, "placeholder", e.target.value)} placeholder="Hint text" className="text-sm" />
-                  </div>
-                </div>
-                {field.field_type === "select" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Options (comma-separated)</Label>
-                    <Input value={(field.options || []).join(", ")} onChange={e => updateFormField(index, "options", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} placeholder="Option 1, Option 2, Option 3" className="text-sm" />
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Switch checked={field.is_required} onCheckedChange={v => updateFormField(index, "is_required", v)} />
-                  <Label className="text-xs">Required</Label>
-                </div>
-              </div>
-            ))}
+            {formFields.length > 0 && (
+              <Accordion type="multiple" className="space-y-2">
+                {formFields.map((field, index) => (
+                  <AccordionItem
+                    key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                    value={`field-${index}`}
+                    className={cn(
+                      "rounded-lg border px-3",
+                      dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
+                    )}
+                    draggable
+                    onDragStart={() => setDraggingFieldIndex(index)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverFieldIndex(index);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggingFieldIndex !== null) {
+                        moveFormField(draggingFieldIndex, index);
+                      }
+                      setDraggingFieldIndex(null);
+                      setDragOverFieldIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingFieldIndex(null);
+                      setDragOverFieldIndex(null);
+                    }}
+                  >
+                    <div className="flex items-center gap-2 py-1">
+                      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <AccordionTrigger className="py-2 hover:no-underline">
+                        <div className="flex items-center gap-2 text-left">
+                          <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
+                          <span className="text-sm font-semibold">{field.label || "Untitled Field"}</span>
+                          {field.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
+                        </div>
+                      </AccordionTrigger>
+                      <div className="flex items-center gap-1 ml-2">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <AccordionContent>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Label</Label>
+                          <Input value={field.label} onChange={e => updateFormField(index, "label", e.target.value)} placeholder="e.g. University Name" className="text-sm" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Field Key</Label>
+                          <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. university_name" className="text-sm font-mono" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Type</Label>
+                          <Select value={field.field_type} onValueChange={v => updateFormField(index, "field_type", v)}>
+                            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>{FIELD_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Placeholder</Label>
+                          <Input value={field.placeholder} onChange={e => updateFormField(index, "placeholder", e.target.value)} placeholder="Hint text" className="text-sm" />
+                        </div>
+                      </div>
+                      {field.field_type === "select" && (
+                        <div className="space-y-1 mt-2">
+                          <Label className="text-xs">Options (comma-separated)</Label>
+                          <Input value={(field.options || []).join(", ")} onChange={e => updateFormField(index, "options", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} placeholder="Option 1, Option 2, Option 3" className="text-sm" />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Switch checked={field.is_required} onCheckedChange={v => updateFormField(index, "is_required", v)} />
+                        <Label className="text-xs">Required</Label>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
               <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">

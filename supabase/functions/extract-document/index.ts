@@ -34,9 +34,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { file_base64, file_type } = await req.json();
+    const { file_base64, file_type, fields } = await req.json();
     if (!file_base64) {
       return new Response(JSON.stringify({ error: "No file provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!Array.isArray(fields) || fields.length === 0) {
+      return new Response(JSON.stringify({ error: "No dynamic fields provided" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -105,6 +112,31 @@ Deno.serve(async (req) => {
       });
     }
 
+    const sanitizedFields = fields
+      .filter((field: any) => typeof field?.field_key === "string" && field.field_key.trim().length > 0)
+      .map((field: any) => ({
+        field_key: String(field.field_key).trim(),
+        label: typeof field.label === "string" ? field.label : field.field_key,
+        field_type: typeof field.field_type === "string" ? field.field_type : "text",
+        options: Array.isArray(field.options) ? field.options : [],
+        is_required: Boolean(field.is_required),
+      }));
+
+    if (sanitizedFields.length === 0) {
+      return new Response(JSON.stringify({ error: "No valid dynamic fields provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const schemaExample = Object.fromEntries(sanitizedFields.map((field: any) => [field.field_key, ""]));
+    const fieldHints = sanitizedFields
+      .map((field: any) => {
+        const opts = field.options.length > 0 ? `; options: ${field.options.join(", ")}` : "";
+        return `- ${field.field_key}: ${field.label} (type: ${field.field_type}; required: ${field.is_required ? "yes" : "no"}${opts})`;
+      })
+      .join("\n");
+
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -116,17 +148,20 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a data extraction assistant. Extract structured information from the document text provided. Return ONLY a valid JSON object with these fields (use empty string if not found):
-{
-  "university_name": "Name of the university/school",
-  "program_name": "Name of the program/major",
-  "sevis_id": "SEVIS number (format: N00XXXXXXXXX)",
-  "visa_country": "Country for visa (e.g., USA, UK, Canada)",
-  "visa_type": "Type of visa (e.g., F1, J1, H1B)",
-  "start_date": "Program start date in YYYY-MM-DD format",
-  "student_name": "Name of the student"
-}
-Do NOT include any markdown, code blocks, or explanations. Return ONLY the JSON.`,
+            content: `You are a data extraction assistant. Extract structured information from document text.
+
+Return ONLY a valid JSON object with EXACTLY these keys (use empty string if not found):
+${JSON.stringify(schemaExample, null, 2)}
+
+Field descriptions:
+${fieldHints}
+
+Rules:
+- Do not add any extra keys.
+- Use plain string values only.
+- For date fields, prefer YYYY-MM-DD when possible.
+- For select fields, choose the closest matching option from provided options.
+- Do NOT include markdown, code blocks, or explanations. Return ONLY JSON.`,
           },
           {
             role: "user",
@@ -160,7 +195,14 @@ Do NOT include any markdown, code blocks, or explanations. Return ONLY the JSON.
       });
     }
 
-    return new Response(JSON.stringify(structured), {
+    const normalized = Object.fromEntries(
+      sanitizedFields.map((field: any) => {
+        const raw = structured?.[field.field_key];
+        return [field.field_key, typeof raw === "string" ? raw : raw == null ? "" : String(raw)];
+      })
+    );
+
+    return new Response(JSON.stringify(normalized), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

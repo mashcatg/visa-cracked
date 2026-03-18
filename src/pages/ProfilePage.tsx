@@ -23,10 +23,18 @@ type ProfileData = {
   start_date: string;
 };
 
+type DynamicProfileField = {
+  field_key: string;
+  label: string;
+  value: string;
+  is_required: boolean;
+};
+
 export default function ProfilePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [dynamicFields, setDynamicFields] = useState<DynamicProfileField[]>([]);
   const [profile, setProfile] = useState<ProfileData>({
     full_name: "",
     email: "",
@@ -42,6 +50,69 @@ export default function ProfilePage() {
     start_date: "",
   });
 
+  async function loadDynamicFields(visaCountry: string, visaType: string, userId: string) {
+    if (!visaType) {
+      setDynamicFields([]);
+      return;
+    }
+
+    let countryId: string | null = null;
+    if (visaCountry) {
+      const { data: country } = await supabase
+        .from("countries")
+        .select("id")
+        .eq("name", visaCountry)
+        .limit(1)
+        .single();
+      countryId = country?.id ?? null;
+    }
+
+    const visaTypeQuery = supabase
+      .from("visa_types")
+      .select("id")
+      .eq("name", visaType)
+      .limit(1);
+
+    if (countryId) {
+      visaTypeQuery.eq("country_id", countryId);
+    }
+
+    const { data: visaTypeRow } = await visaTypeQuery.single();
+    const visaTypeId = visaTypeRow?.id;
+
+    if (!visaTypeId) {
+      setDynamicFields([]);
+      return;
+    }
+
+    const [fieldsRes, valuesRes] = await Promise.all([
+      supabase
+        .from("visa_type_form_fields")
+        .select("field_key, label, is_required")
+        .eq("visa_type_id", visaTypeId)
+        .order("sort_order"),
+      supabase
+        .from("user_visa_form_data")
+        .select("field_key, field_value")
+        .eq("user_id", userId)
+        .eq("visa_type_id", visaTypeId),
+    ]);
+
+    const valuesMap = new Map<string, string>();
+    (valuesRes.data || []).forEach((item: any) => {
+      valuesMap.set(item.field_key, item.field_value || "");
+    });
+
+    setDynamicFields(
+      (fieldsRes.data || []).map((field: any) => ({
+        field_key: field.field_key,
+        label: field.label,
+        is_required: Boolean(field.is_required),
+        value: valuesMap.get(field.field_key) || "",
+      }))
+    );
+  }
+
   useEffect(() => {
     if (!user) return;
 
@@ -50,7 +121,7 @@ export default function ProfilePage() {
       .select("full_name, email, whatsapp_number, facebook_url, linkedin_url, instagram_url, university_name, program_name, sevis_id, visa_country, visa_type, start_date")
       .eq("user_id", user.id)
       .single()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error) {
           toast.error("Failed to load profile");
           setLoading(false);
@@ -72,6 +143,8 @@ export default function ProfilePage() {
             visa_type: data.visa_type || "",
             start_date: data.start_date || "",
           });
+
+          await loadDynamicFields(data.visa_country || "", data.visa_type || "", user.id);
         }
 
         setLoading(false);
@@ -140,6 +213,24 @@ export default function ProfilePage() {
             <Info label="Start Date" value={profile.start_date} />
           </CardContent>
         </Card>
+
+        {dynamicFields.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Dynamic Visa Form Data</CardTitle>
+              <CardDescription>All visa-type specific fields configured by admin</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {dynamicFields.map((field) => (
+                <Info
+                  key={field.field_key}
+                  label={`${field.label}${field.is_required ? " *" : ""}`}
+                  value={field.value}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

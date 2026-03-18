@@ -111,21 +111,42 @@ export default function EditProfilePage() {
 
   async function handleSave() {
     if (!user) return;
+
+    const missingRequired = formFields.filter((field) => field.is_required && !dynamicData[field.field_key]?.trim());
+    if (missingRequired.length > 0) {
+      toast.error(`Please fill required field: ${missingRequired[0].label}`);
+      return;
+    }
+
     setSaving(true);
 
-    await supabase.from("profiles").update({
+    const { error: profileError } = await supabase.from("profiles").update({
       full_name: form.full_name || null, whatsapp_number: form.whatsapp_number || null,
       facebook_url: form.facebook_url || null, linkedin_url: form.linkedin_url || null,
       instagram_url: form.instagram_url || null, visa_country: form.visa_country || null,
       visa_type: form.visa_type || null,
     }).eq("user_id", user.id);
 
+    if (profileError) {
+      setSaving(false);
+      toast.error("Failed to update profile");
+      return;
+    }
+
     if (selectedVisaTypeId && formFields.length > 0) {
       const upserts = formFields.map(f => ({
         user_id: user.id, visa_type_id: selectedVisaTypeId,
         field_key: f.field_key, field_value: dynamicData[f.field_key] || null,
       }));
-      await supabase.from("user_visa_form_data").upsert(upserts, { onConflict: "user_id,visa_type_id,field_key" });
+      const { error: dynamicError } = await supabase
+        .from("user_visa_form_data")
+        .upsert(upserts, { onConflict: "user_id,visa_type_id,field_key" });
+
+      if (dynamicError) {
+        setSaving(false);
+        toast.error("Failed to update visa form details");
+        return;
+      }
     }
 
     setSaving(false);

@@ -23,10 +23,17 @@ interface FormField {
   sort_order: number;
   options: any;
   section_title?: string | null;
-  layout_width?: "full" | "half";
+  layout_width?: "1" | "2" | "3" | "4" | "full" | "half";
 }
 
 const borderlessInputClass = "border-0 shadow-none focus-visible:ring-1 focus-visible:ring-accent bg-muted/30";
+
+function getGridSpanClass(layoutWidth?: FormField["layout_width"]) {
+  if (layoutWidth === "4") return "md:col-span-3";
+  if (layoutWidth === "3") return "md:col-span-4";
+  if (layoutWidth === "2" || layoutWidth === "half") return "md:col-span-6";
+  return "md:col-span-12";
+}
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -90,13 +97,6 @@ export default function Onboarding() {
           file_base64: base64,
           file_type: file.type,
           visa_type_id: visaTypeId,
-          fields: formFields.map((field) => ({
-            field_key: field.field_key,
-            label: field.label,
-            field_type: field.field_type,
-            options: field.options,
-            is_required: field.is_required,
-          })),
         },
       });
       if (error) throw error;
@@ -195,11 +195,11 @@ export default function Onboarding() {
 
   const dynamicSections = formFields.reduce<Array<{ title: string; fields: FormField[] }>>((acc, field) => {
     const sectionTitle = (field.section_title || "General Details").trim();
-    const existing = acc.find((section) => section.title === sectionTitle);
-    if (existing) {
-      existing.fields.push(field);
-    } else {
+    const last = acc[acc.length - 1];
+    if (!last || last.title !== sectionTitle) {
       acc.push({ title: sectionTitle, fields: [field] });
+    } else {
+      last.fields.push(field);
     }
     return acc;
   }, []);
@@ -266,9 +266,9 @@ export default function Onboarding() {
                     {dynamicSections.map((section) => (
                       <div key={section.title} className="space-y-3">
                         <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                           {section.fields.map((field) => (
-                            <div key={field.field_key} className={`space-y-1 ${field.layout_width === "half" ? "md:col-span-1" : "md:col-span-2"}`}>
+                            <div key={field.field_key} className={`space-y-1 ${getGridSpanClass(field.layout_width)}`}>
                               <Label className="text-xs">{field.label}{field.is_required && <span className="text-destructive"> *</span>}</Label>
                               {renderDynamicField(field)}
                             </div>

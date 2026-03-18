@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { file_base64, file_type, fields, visa_type_id } = await req.json();
+    const { file_base64, file_type, visa_type_id } = await req.json();
     if (!file_base64) {
       return new Response(JSON.stringify({ error: "No file provided" }), {
         status: 400,
@@ -57,16 +57,24 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    let dynamicFieldsInput: any[] = [];
-    if (visa_type_id) {
-      const { data: fetchedFields } = await supabase
-        .from("visa_type_form_fields")
-        .select("field_key, label, field_type, options, is_required")
-        .eq("visa_type_id", visa_type_id)
-        .order("sort_order");
-      dynamicFieldsInput = fetchedFields || [];
-    } else if (Array.isArray(fields)) {
-      dynamicFieldsInput = fields;
+    if (!visa_type_id) {
+      return new Response(JSON.stringify({ error: "visa_type_id is required" }), {
+        status: 400,
+        headers: jsonHeaders,
+      });
+    }
+
+    const { data: dynamicFieldsInput, error: fieldsError } = await supabase
+      .from("visa_type_form_fields")
+      .select("field_key, label, field_type, options, is_required")
+      .eq("visa_type_id", visa_type_id)
+      .order("sort_order");
+
+    if (fieldsError) {
+      return new Response(JSON.stringify({ error: "Failed to load dynamic fields" }), {
+        status: 500,
+        headers: jsonHeaders,
+      });
     }
 
     // Step 1: Mistral OCR
@@ -79,10 +87,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const mimeType = file_type || "application/pdf";
-    const documentUrl = `data:${mimeType};base64,${file_base64}`;
 
-    // Test with direct base64 document format instead of data URL
-    const ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
+    let ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -98,6 +104,25 @@ Deno.serve(async (req: Request) => {
         include_image_base64: false,
       }),
     });
+
+    if (!ocrRes.ok) {
+      const dataUrl = `data:${mimeType};base64,${file_base64}`;
+      ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${MISTRAL_API_KEY}`,
+        },
+        body: JSON.stringify({
+          document: {
+            type: "document_url",
+            document_url: dataUrl,
+          },
+          model: "mistral-ocr-latest",
+          include_image_base64: false,
+        }),
+      });
+    }
 
     if (!ocrRes.ok) {
       const errorText = await ocrRes.text();
@@ -137,7 +162,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const sanitizedFields = dynamicFieldsInput
+    const sanitizedFields = (dynamicFieldsInput || [])
       .filter((field: any) => typeof field?.field_key === "string" && field.field_key.trim().length > 0)
       .map((field: any) => ({
         field_key: normalizeKey(String(field.field_key)),
@@ -170,6 +195,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
@@ -214,10 +240,14 @@ Rules:
     try {
       structured = JSON.parse(text);
     } catch {
-      return new Response(JSON.stringify({ error: "Failed to parse extracted data" }), {
-        status: 500,
-        headers: jsonHeaders,
-      });
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return new Response(JSON.stringify({ error: "Failed to parse extracted data" }), {
+          status: 500,
+          headers: jsonHeaders,
+        });
+      }
+      structured = JSON.parse(jsonMatch[0]);
     }
 
     const structuredEntries = Object.entries(structured || {});

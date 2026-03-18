@@ -48,8 +48,21 @@ type FormField = {
   sort_order: number;
   options: string[];
   section_title: string;
-  layout_width: "full" | "half";
+  layout_width: "1" | "2" | "3" | "4";
 };
+
+function normalizeLayoutWidth(value: string | null | undefined): "1" | "2" | "3" | "4" {
+  if (value === "4" || value === "3" || value === "2" || value === "1") return value;
+  if (value === "half") return "2";
+  return "1";
+}
+
+function getGridLabel(value: "1" | "2" | "3" | "4") {
+  if (value === "4") return "4 Grids";
+  if (value === "3") return "3 Grids";
+  if (value === "2") return "2 Grids";
+  return "1 Grid";
+}
 
 export default function AdminVisaTypes() {
   const isMobile = useIsMobile();
@@ -70,6 +83,7 @@ export default function AdminVisaTypes() {
   const [savingMode, setSavingMode] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
+  const [sectionTitle, setSectionTitle] = useState("");
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
   const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
   const [openFieldIndex, setOpenFieldIndex] = useState<number | null>(null);
@@ -131,7 +145,7 @@ export default function AdminVisaTypes() {
   async function openFields(vt: any) {
     setFieldsVisaType(vt);
     const { data } = await supabase.from("visa_type_form_fields").select("*").eq("visa_type_id", vt.id).order("sort_order");
-    setFormFields((data || []).map((f: any) => ({
+    const mapped = (data || []).map((f: any) => ({
       id: f.id,
       label: f.label,
       field_key: f.field_key,
@@ -141,8 +155,10 @@ export default function AdminVisaTypes() {
       sort_order: f.sort_order,
       options: Array.isArray(f.options) ? f.options : [],
       section_title: f.section_title || "",
-      layout_width: f.layout_width === "half" ? "half" : "full",
-    })));
+      layout_width: normalizeLayoutWidth(f.layout_width),
+    }));
+    setFormFields(mapped);
+    setSectionTitle((mapped.find((f) => f.section_title.trim())?.section_title || "").trim());
     setOpenFieldIndex(null);
     setFieldsDialogOpen(true);
   }
@@ -184,7 +200,7 @@ export default function AdminVisaTypes() {
 
   function addFormField() {
     setFormFields(prev => [...prev, {
-      label: "", field_key: "", field_type: "text", placeholder: "", is_required: false, sort_order: prev.length, options: [], section_title: "", layout_width: "full",
+      label: "", field_key: "", field_type: "text", placeholder: "", is_required: false, sort_order: prev.length, options: [], section_title: sectionTitle, layout_width: "1",
     }]);
     setOpenFieldIndex(formFields.length);
   }
@@ -206,6 +222,7 @@ export default function AdminVisaTypes() {
       next.splice(toIndex, 0, moved);
       return next;
     });
+    setOpenFieldIndex(toIndex);
   }
 
   function moveFieldUp(index: number) {
@@ -242,8 +259,8 @@ export default function AdminVisaTypes() {
         is_required: f.is_required,
         sort_order: i,
         options: f.field_type === "select" ? f.options : null,
-        section_title: f.section_title?.trim() || null,
-        layout_width: f.layout_width || "full",
+        section_title: sectionTitle.trim() || null,
+        layout_width: f.layout_width || "1",
       }));
       const { error } = await supabase.from("visa_type_form_fields").insert(inserts);
       if (error) { toast.error(error.message); setSavingFields(false); return; }
@@ -424,6 +441,10 @@ export default function AdminVisaTypes() {
             <SheetHeader><SheetTitle>Form Fields — {fieldsVisaType?.name}</SheetTitle></SheetHeader>
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
+              <div className="space-y-1">
+                <Label className="text-xs">Section Title</Label>
+                <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
+              </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}
@@ -479,28 +500,27 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {field.section_title || "General"} • {field.layout_width === "half" ? "Half Width" : "Full Width"}
+                        {sectionTitle || "General"} • {getGridLabel(field.layout_width)}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Grid</Label>
+                          <Select value={field.layout_width} onValueChange={(v: "1" | "2" | "3" | "4") => updateFormField(index, "layout_width", v)}>
+                            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 Grid (full row)</SelectItem>
+                              <SelectItem value="2">2 Grids</SelectItem>
+                              <SelectItem value="3">3 Grids</SelectItem>
+                              <SelectItem value="4">4 Grids</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="hidden md:block" />
                       </div>
                     </div>
 
                     {isOpen && (
                       <div className="mt-3 space-y-3 bg-muted/20 p-3 rounded">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Section Title</Label>
-                            <Input value={field.section_title} onChange={e => updateFormField(index, "section_title", e.target.value)} placeholder="e.g. Personal Details" className="text-sm" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Desktop Width</Label>
-                            <Select value={field.layout_width} onValueChange={(v: "full" | "half") => updateFormField(index, "layout_width", v)}>
-                              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="full">Full Width</SelectItem>
-                                <SelectItem value="half">Half Width (side-by-side)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs">Label</Label>
@@ -552,6 +572,10 @@ export default function AdminVisaTypes() {
             <DialogHeader><DialogTitle>Form Fields — {fieldsVisaType?.name}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
+              <div className="space-y-1">
+                <Label className="text-xs">Section Title</Label>
+                <Input value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
+              </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}
@@ -607,28 +631,27 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {field.section_title || "General"} • {field.layout_width === "half" ? "Half Width" : "Full Width"}
+                        {sectionTitle || "General"} • {getGridLabel(field.layout_width)}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Grid</Label>
+                          <Select value={field.layout_width} onValueChange={(v: "1" | "2" | "3" | "4") => updateFormField(index, "layout_width", v)}>
+                            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 Grid (full row)</SelectItem>
+                              <SelectItem value="2">2 Grids</SelectItem>
+                              <SelectItem value="3">3 Grids</SelectItem>
+                              <SelectItem value="4">4 Grids</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="hidden md:block" />
                       </div>
                     </div>
 
                     {isOpen && (
                       <div className="mt-3 space-y-3 bg-muted/20 p-3 rounded">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Section Title</Label>
-                            <Input value={field.section_title} onChange={e => updateFormField(index, "section_title", e.target.value)} placeholder="e.g. Personal Details" className="text-sm" />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Desktop Width</Label>
-                            <Select value={field.layout_width} onValueChange={(v: "full" | "half") => updateFormField(index, "layout_width", v)}>
-                              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="full">Full Width</SelectItem>
-                                <SelectItem value="half">Half Width (side-by-side)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs">Label</Label>
@@ -665,7 +688,7 @@ export default function AdminVisaTypes() {
                   </div>
                 );
               })}
-              <div className="flex gap-2">
+              <div className="sticky bottom-0 left-0 right-0 bg-background border-t p-3 flex gap-2">
                 <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
                 <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">
                   {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Fields</>}

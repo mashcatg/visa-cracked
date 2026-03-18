@@ -25,8 +25,15 @@ type DynamicProfileField = {
   value: string;
   is_required: boolean;
   section_title: string;
-  layout_width: "full" | "half";
+  layout_width: "1" | "2" | "3" | "4" | "full" | "half";
 };
+
+function getGridSpanClass(layoutWidth?: DynamicProfileField["layout_width"]) {
+  if (layoutWidth === "4") return "md:col-span-3";
+  if (layoutWidth === "3") return "md:col-span-4";
+  if (layoutWidth === "2" || layoutWidth === "half") return "md:col-span-6";
+  return "md:col-span-12";
+}
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -104,18 +111,20 @@ export default function ProfilePage() {
         is_required: Boolean(field.is_required),
         value: valuesMap.get(field.field_key) || "",
         section_title: field.section_title || "General Details",
-        layout_width: field.layout_width === "half" ? "half" : "full",
+        layout_width: ["1", "2", "3", "4", "full", "half"].includes(field.layout_width)
+          ? field.layout_width
+          : "1",
       }))
     );
   }
 
   const dynamicSections = dynamicFields.reduce<Array<{ title: string; fields: DynamicProfileField[] }>>((acc, field) => {
     const sectionTitle = (field.section_title || "General Details").trim();
-    const existing = acc.find((section) => section.title === sectionTitle);
-    if (existing) {
-      existing.fields.push(field);
-    } else {
+    const last = acc[acc.length - 1];
+    if (!last || last.title !== sectionTitle) {
       acc.push({ title: sectionTitle, fields: [field] });
+    } else {
+      last.fields.push(field);
     }
     return acc;
   }, []);
@@ -223,9 +232,9 @@ export default function ProfilePage() {
               {dynamicSections.map((section) => (
                 <div key={section.title} className="space-y-3">
                   <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     {section.fields.map((field) => (
-                      <div key={field.field_key} className="md:col-span-1">
+                      <div key={field.field_key} className={getGridSpanClass(field.layout_width)}>
                         <Info
                           label={`${field.label}${field.is_required ? " *" : ""}`}
                           value={field.value}

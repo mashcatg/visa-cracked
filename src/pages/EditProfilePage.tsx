@@ -21,7 +21,14 @@ interface FormField {
   is_required: boolean;
   options: any;
   section_title?: string | null;
-  layout_width?: "full" | "half";
+  layout_width?: "1" | "2" | "3" | "4" | "full" | "half";
+}
+
+function getGridSpanClass(layoutWidth?: FormField["layout_width"]) {
+  if (layoutWidth === "4") return "md:col-span-3";
+  if (layoutWidth === "3") return "md:col-span-4";
+  if (layoutWidth === "2" || layoutWidth === "half") return "md:col-span-6";
+  return "md:col-span-12";
 }
 
 export default function EditProfilePage() {
@@ -172,11 +179,11 @@ export default function EditProfilePage() {
 
   const dynamicSections = formFields.reduce<Array<{ title: string; fields: FormField[] }>>((acc, field) => {
     const sectionTitle = (field.section_title || "General Details").trim();
-    const existing = acc.find((section) => section.title === sectionTitle);
-    if (existing) {
-      existing.fields.push(field);
-    } else {
+    const last = acc[acc.length - 1];
+    if (!last || last.title !== sectionTitle) {
       acc.push({ title: sectionTitle, fields: [field] });
+    } else {
+      last.fields.push(field);
     }
     return acc;
   }, []);
@@ -238,9 +245,9 @@ export default function EditProfilePage() {
               {dynamicSections.map((section) => (
                 <div key={section.title} className="space-y-3">
                   <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     {section.fields.map(field => (
-                      <div key={field.field_key} className={`space-y-2 ${field.layout_width === "half" ? "md:col-span-1" : "md:col-span-2"}`}>
+                      <div key={field.field_key} className={`space-y-2 ${getGridSpanClass(field.layout_width)}`}>
                         <Label>{field.label}{field.is_required && <span className="text-destructive"> *</span>}</Label>
                         {renderDynamicField(field)}
                       </div>

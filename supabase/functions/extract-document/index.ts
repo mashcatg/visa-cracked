@@ -172,6 +172,12 @@ Deno.serve(async (req: Request) => {
         is_required: Boolean(field.is_required),
       }));
 
+    console.log("extract-document schema", {
+      visa_type_id,
+      field_count: sanitizedFields.length,
+      field_keys: sanitizedFields.map((field: any) => field.field_key),
+    });
+
     if (sanitizedFields.length === 0) {
       return new Response(JSON.stringify({ error: "No valid dynamic fields provided" }), {
         status: 400,
@@ -219,6 +225,30 @@ Rules:
       max_tokens: 1600,
     };
 
+    const schemaProperties = Object.fromEntries(
+      sanitizedFields.map((field: any) => [field.field_key, { type: "string" }])
+    );
+
+    const requestWithJsonSchemaMode = {
+      model: "google/gemini-2.5-flash",
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "visa_dynamic_fields",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: schemaProperties,
+            required: sanitizedFields.map((field: any) => field.field_key),
+          },
+        },
+      },
+      messages: baseMessages,
+      temperature: 0,
+      max_tokens: 1600,
+    };
+
     const requestWithoutJsonMode = {
       model: "google/gemini-2.5-flash",
       messages: baseMessages,
@@ -232,12 +262,12 @@ Rules:
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(requestWithJsonMode),
+      body: JSON.stringify(requestWithJsonSchemaMode),
     });
 
     if (!aiRes.ok) {
-      const firstError = await aiRes.text();
-      console.error("AI gateway error (json mode):", aiRes.status, firstError.slice(0, 1000));
+      const schemaError = await aiRes.text();
+      console.error("AI gateway error (json schema mode):", aiRes.status, schemaError.slice(0, 1000));
 
       aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -245,19 +275,33 @@ Rules:
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestWithoutJsonMode),
+        body: JSON.stringify(requestWithJsonMode),
       });
 
       if (!aiRes.ok) {
-        const secondError = await aiRes.text();
-        console.error("AI gateway error (fallback):", aiRes.status, secondError.slice(0, 1000));
-        return new Response(JSON.stringify({
-          error: "Data extraction failed",
-          details: `AI gateway failed. json_mode_status=failed, fallback_status=${aiRes.status}`,
-        }), {
-          status: 500,
-          headers: jsonHeaders,
+        const firstError = await aiRes.text();
+        console.error("AI gateway error (json mode):", aiRes.status, firstError.slice(0, 1000));
+
+        aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestWithoutJsonMode),
         });
+
+        if (!aiRes.ok) {
+          const secondError = await aiRes.text();
+          console.error("AI gateway error (fallback):", aiRes.status, secondError.slice(0, 1000));
+          return new Response(JSON.stringify({
+            error: "Data extraction failed",
+            details: `AI gateway failed. json_schema_mode=failed, json_mode=failed, fallback_status=${aiRes.status}`,
+          }), {
+            status: 500,
+            headers: jsonHeaders,
+          });
+        }
       }
     }
 

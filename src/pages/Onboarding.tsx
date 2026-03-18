@@ -218,7 +218,7 @@ export default function Onboarding() {
           </div>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+        <div className="bg-card rounded-2xl border-0 p-6 shadow-sm">
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="font-semibold text-lg text-foreground">Select Country & Visa Type</h2>
@@ -236,7 +236,7 @@ export default function Onboarding() {
                   <SelectContent>{visaTypes.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
+              <Button className="w-full border-0 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
                 if (!countryId || !visaTypeId) { toast.error("Please select country and visa type"); return; }
                 setStep(2);
               }}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
@@ -282,8 +282,8 @@ export default function Onboarding() {
                 <p className="text-sm text-muted-foreground py-4 text-center">No additional fields required for this visa type. Click Next to continue.</p>
               )}
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(1)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1 border-0"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                <Button className="flex-1 border-0 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
                   const missingRequired = formFields.filter(f => f.is_required && !formData[f.field_key]?.trim());
                   if (missingRequired.length > 0) {
                     toast.error(`Please fill required field: ${missingRequired[0].label}`);
@@ -306,8 +306,8 @@ export default function Onboarding() {
               <div className="space-y-2"><Label>LinkedIn URL</Label><Input className={borderlessInputClass} value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="https://linkedin.com/in/your-profile" /></div>
               <div className="space-y-2"><Label>Instagram URL</Label><Input className={borderlessInputClass} value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="https://instagram.com/your.handle" /></div>
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                <Button className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleComplete} disabled={loading}>
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1 border-0"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                <Button className="flex-1 border-0 bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleComplete} disabled={loading}>
                   {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : "Complete Setup"}
                 </Button>
               </div>

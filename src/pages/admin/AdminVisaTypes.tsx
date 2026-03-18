@@ -68,10 +68,10 @@ function getGridLabel(value: "1" | "2" | "3" | "4") {
 function getEffectiveSectionTitle(items: FormField[], index: number) {
   for (let cursor = index; cursor >= 0; cursor -= 1) {
     if (items[cursor]?.item_type === "section") {
-      return items[cursor].section_title?.trim() || "General";
+      return items[cursor].section_title?.trim() || "";
     }
   }
-  return "General";
+  return "";
 }
 
 export default function AdminVisaTypes() {
@@ -511,8 +511,13 @@ export default function AdminVisaTypes() {
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
               <div className="space-y-1">
-                <Label className="text-xs">New Section Title</Label>
-                <Input value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
+                <Input
+                  value={newSectionTitle}
+                  onChange={(e) => setNewSectionTitle(e.target.value)}
+                  placeholder="Section title"
+                  className="text-sm"
+                  aria-label="Section title"
+                />
               </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
@@ -616,7 +621,9 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {getEffectiveSectionTitle(formFields, index)} • {getGridLabel(field.layout_width)}
+                        {getEffectiveSectionTitle(formFields, index)
+                          ? `${getEffectiveSectionTitle(formFields, index)} • ${getGridLabel(field.layout_width)}`
+                          : getGridLabel(field.layout_width)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -690,8 +697,13 @@ export default function AdminVisaTypes() {
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
               <div className="space-y-1">
-                <Label className="text-xs">New Section Title</Label>
-                <Input value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
+                <Input
+                  value={newSectionTitle}
+                  onChange={(e) => setNewSectionTitle(e.target.value)}
+                  placeholder="Section title"
+                  className="text-sm"
+                  aria-label="Section title"
+                />
               </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
@@ -795,7 +807,9 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {getEffectiveSectionTitle(formFields, index)} • {getGridLabel(field.layout_width)}
+                        {getEffectiveSectionTitle(formFields, index)
+                          ? `${getEffectiveSectionTitle(formFields, index)} • ${getGridLabel(field.layout_width)}`
+                          : getGridLabel(field.layout_width)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">

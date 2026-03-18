@@ -93,7 +93,6 @@ export default function AdminVisaTypes() {
   const [savingMode, setSavingMode] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
-  const [newSectionTitle, setNewSectionTitle] = useState("");
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
   const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
   const [openFieldIndex, setOpenFieldIndex] = useState<number | null>(null);
@@ -192,7 +191,6 @@ export default function AdminVisaTypes() {
     }
 
     setFormFields(rebuilt);
-    setNewSectionTitle("");
     setOpenFieldIndex(null);
     setFieldsDialogOpen(true);
   }
@@ -241,12 +239,6 @@ export default function AdminVisaTypes() {
   }
 
   function addSection() {
-    const title = newSectionTitle.trim();
-    if (!title) {
-      toast.error("Section title is required");
-      return;
-    }
-
     setFormFields((prev) => [...prev, {
       item_type: "section",
       label: "",
@@ -256,10 +248,9 @@ export default function AdminVisaTypes() {
       is_required: false,
       sort_order: prev.length,
       options: [],
-      section_title: title,
+      section_title: "",
       layout_width: "1",
     }]);
-    setNewSectionTitle("");
   }
 
   function updateFormField(index: number, field: string, value: any) {
@@ -510,15 +501,6 @@ export default function AdminVisaTypes() {
             <SheetHeader><SheetTitle>Form Fields — {fieldsVisaType?.name}</SheetTitle></SheetHeader>
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
-              <div className="space-y-1">
-                <Input
-                  value={newSectionTitle}
-                  onChange={(e) => setNewSectionTitle(e.target.value)}
-                  placeholder="Section title"
-                  className="text-sm"
-                  aria-label="Section title"
-                />
-              </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}
@@ -696,15 +678,6 @@ export default function AdminVisaTypes() {
             <DialogHeader><DialogTitle>Form Fields — {fieldsVisaType?.name}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
-              <div className="space-y-1">
-                <Input
-                  value={newSectionTitle}
-                  onChange={(e) => setNewSectionTitle(e.target.value)}
-                  placeholder="Section title"
-                  className="text-sm"
-                  aria-label="Section title"
-                />
-              </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}

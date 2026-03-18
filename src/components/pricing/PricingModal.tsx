@@ -163,17 +163,29 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
   const currencySymbol = currency === "USD" ? "$" : "৳";
 
   return (
-    <div className="space-y-4 py-4">
-      {/* Currency Switcher - Switch */}
-      <div className="flex items-center justify-between gap-4 bg-muted/30 rounded-lg p-3">
-        <div className="flex items-center justify-center gap-3 flex-1">
-          <span className={cn("text-sm font-medium transition-colors", currency === "BDT" ? "text-primary" : "text-muted-foreground")}>BDT</span>
-          <Switch 
-            checked={currency === "USD"} 
-            onCheckedChange={(checked) => setCurrency(checked ? "USD" : "BDT")}
-            className="data-[state=checked]:bg-accent"
-          />
-          <span className={cn("text-sm font-medium transition-colors", currency === "USD" ? "text-primary" : "text-muted-foreground")}>USD</span>
+    <div className={cn("py-4", isMobile ? "space-y-4" : "space-y-6")}>
+      <div
+        className={cn(
+          "rounded-xl border bg-muted/20",
+          isMobile
+            ? "p-3"
+            : "p-4 lg:p-5"
+        )}
+      >
+        <div className={cn("flex items-center gap-4", isMobile ? "justify-between" : "justify-between") }>
+          <div className="flex items-center gap-3">
+            <span className={cn("text-sm font-medium transition-colors", currency === "BDT" ? "text-primary" : "text-muted-foreground")}>BDT</span>
+            <Switch
+              checked={currency === "USD"}
+              onCheckedChange={(checked) => setCurrency(checked ? "USD" : "BDT")}
+              className="data-[state=checked]:bg-accent"
+            />
+            <span className={cn("text-sm font-medium transition-colors", currency === "USD" ? "text-primary" : "text-muted-foreground")}>USD</span>
+          </div>
+
+          {!isMobile && (
+            <div className="text-xs text-muted-foreground">Prices update instantly by selected currency</div>
+          )}
         </div>
       </div>
 
@@ -215,7 +227,7 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
       )}
 
       {/* Plan Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={cn("grid gap-4", isMobile ? "grid-cols-1" : "md:grid-cols-2 xl:grid-cols-4 xl:gap-5")}>
         {plans.map((plan) => {
           const basePrice = currency === "USD" ? plan.usd : plan.bdt;
           const originalPrice = currency === "USD" ? (plan.originalUsd ?? plan.usd) : (plan.originalBdt ?? plan.bdt);
@@ -223,15 +235,17 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
             ? applyDiscount(basePrice, appliedCoupon.discount_type, appliedCoupon.discount_type === "fixed" && currency === "USD" ? Math.round(appliedCoupon.discount_amount * (plan.usd / plan.bdt)) : appliedCoupon.discount_amount)
             : basePrice;
           const hasDiscount = originalPrice > finalPrice;
+          const effectiveMocks = plan.name === "Ultimate" ? 15 : plan.mocks;
+          const approxCostPerMock = effectiveMocks > 0 ? Math.round(finalPrice / effectiveMocks) : finalPrice;
 
           return (
             <div
               key={plan.name}
               className={cn(
-                "relative rounded-2xl border p-6 flex flex-col",
+                "relative rounded-2xl border p-5 lg:p-6 flex flex-col h-full",
                 plan.popular
                   ? "border-accent shadow-lg shadow-accent/10 ring-2 ring-accent"
-                  : "border-border"
+                  : "border-border bg-card"
               )}
             >
               {plan.badge && (
@@ -246,6 +260,18 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
               )}
               <h3 className="font-bold text-lg">{plan.name}</h3>
               <p className="text-xs text-muted-foreground mb-4">{plan.subtitle}</p>
+
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="rounded-lg bg-muted/40 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Credits</p>
+                  <p className="text-sm font-semibold">{plan.credits}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Est / Mock</p>
+                  <p className="text-sm font-semibold">{currencySymbol}{formatPrice(approxCostPerMock)}</p>
+                </div>
+              </div>
+
               <div className="mb-1">
                 {hasDiscount && (
                   <span className="text-xl line-through text-muted-foreground mr-2">{currencySymbol}{formatPrice(originalPrice)}</span>
@@ -285,7 +311,7 @@ function PricingContent({ isMobile }: { isMobile: boolean }) {
 
       {/* Coupon Section on Desktop (at bottom) */}
       {!isMobile && (
-        <div className="text-center pt-4">
+        <div className="text-center pt-2">
           {!showCoupon && !appliedCoupon && (
             <button
               onClick={() => setShowCoupon(true)}
@@ -344,7 +370,7 @@ export default function PricingModal({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-5xl xl:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="text-center">
           <DialogTitle className="text-2xl">Upgrade Your Plan</DialogTitle>
           <DialogDescription>Choose the plan that fits your preparation needs</DialogDescription>

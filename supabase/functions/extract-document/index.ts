@@ -299,7 +299,10 @@ Rules:
       structuredMap.set(normalizeKey(String(key)), typeof value === "string" ? value : value == null ? "" : String(value));
     });
 
-    const normalized = Object.fromEntries(
+    const allowedKeys = new Set(sanitizedFields.map((field: any) => field.field_key));
+    const unknownKeys = Array.from(structuredMap.keys()).filter((key) => !allowedKeys.has(key));
+
+    let normalized = Object.fromEntries(
       sanitizedFields.map((field: any) => {
         const raw = structured?.[field.field_key];
         if (typeof raw === "string") {
@@ -309,6 +312,96 @@ Rules:
         return [field.field_key, mapped ?? ""];
       })
     );
+
+    let filledCount = Object.values(normalized).filter((value) => String(value || "").trim().length > 0).length;
+    const fillRatio = sanitizedFields.length > 0 ? filledCount / sanitizedFields.length : 0;
+
+    if ((unknownKeys.length > 0 && fillRatio < 0.7) || filledCount === 0) {
+      console.warn("AI extraction had unknown keys or low fill ratio", {
+        unknownKeys,
+        fillRatio,
+        filledCount,
+        totalFields: sanitizedFields.length,
+      });
+
+      const remapMessages = [
+        {
+          role: "system",
+          content: `You must map extracted values to ONLY the exact schema keys.
+
+Allowed keys only:
+${JSON.stringify(schemaExample, null, 2)}
+
+Forbidden keys include legacy/static keys like sevis_id, visa_country, visa_type, start_date, student_name.
+
+Rules:
+- Return ONLY a JSON object with exactly the allowed keys.
+- If a value cannot be found, return empty string.
+- Do not invent values.
+- Do not include any key outside allowed keys.`,
+        },
+        {
+          role: "user",
+          content: `Field hints:\n${fieldHints}\n\nDocument text:\n${extractedText.slice(0, 12000)}\n\nPrevious model output:\n${JSON.stringify(structured, null, 2)}\n\nNow remap strictly to allowed keys only.`,
+        },
+      ];
+
+      const remapRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          response_format: { type: "json_object" },
+          messages: remapMessages,
+          temperature: 0,
+          max_tokens: 1600,
+        }),
+      });
+
+      if (remapRes.ok) {
+        const remapData = await remapRes.json();
+        const remapContent = remapData.choices?.[0]?.message?.content;
+        let remapText = typeof remapContent === "string"
+          ? remapContent
+          : Array.isArray(remapContent)
+            ? remapContent.map((part: any) => (typeof part?.text === "string" ? part.text : "")).join("\n")
+            : "";
+
+        remapText = remapText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+        try {
+          const remapStructured = JSON.parse(remapText);
+          const remapEntries = Object.entries(remapStructured || {});
+          const remapMap = new Map<string, string>();
+          remapEntries.forEach(([key, value]) => {
+            remapMap.set(normalizeKey(String(key)), typeof value === "string" ? value : value == null ? "" : String(value));
+          });
+
+          const remapNormalized = Object.fromEntries(
+            sanitizedFields.map((field: any) => [field.field_key, remapMap.get(field.field_key) ?? ""])
+          );
+
+          const remapFilledCount = Object.values(remapNormalized).filter((value) => String(value || "").trim().length > 0).length;
+          if (remapFilledCount >= filledCount) {
+            normalized = remapNormalized;
+            filledCount = remapFilledCount;
+          }
+        } catch (remapParseError) {
+          console.error("Failed to parse remap output", remapParseError);
+        }
+      } else {
+        console.error("AI remap retry failed", remapRes.status, await remapRes.text());
+      }
+    }
+
+    console.log("Extraction result summary", {
+      keysReturned: Object.keys(normalized),
+      filledCount,
+      total: sanitizedFields.length,
+    });
 
     extractedText = "";
 

@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight, Sparkles, Gift } from "lucide-react";
+import { BarChart3, Target, TrendingUp, FileText, ArrowUpRight, Sparkles, Gift, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReferralModal from "@/components/referral/ReferralModal";
+import { calculateProfileCompletion } from "@/lib/profile-completion";
 
 function ReferBanner() {
   const [referralOpen, setReferralOpen] = useState(false);
@@ -43,19 +45,51 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
   const [recentInterviews, setRecentInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [profileCompletion, setProfileCompletion] = useState(100);
 
   useEffect(() => {
     if (!user) return;
 
-    // Fetch user profile name
-    supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data?.full_name) setProfileName(data.full_name);
-      });
+    // Fetch profile + completion data
+    async function fetchProfile() {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, whatsapp_number, facebook_url, linkedin_url, instagram_url, visa_type")
+        .eq("user_id", user!.id)
+        .single();
+
+      if (profile?.full_name) setProfileName(profile.full_name);
+
+      // Find visa type id for form fields
+      let formFields: any[] = [];
+      let userFormData: any[] = [];
+
+      if (profile?.visa_type) {
+        const { data: vt } = await supabase
+          .from("visa_types")
+          .select("id")
+          .eq("name", profile.visa_type)
+          .limit(1)
+          .single();
+
+        if (vt) {
+          const [fieldsRes, dataRes] = await Promise.all([
+            supabase.from("visa_type_form_fields").select("field_key, is_required").eq("visa_type_id", vt.id),
+            supabase.from("user_visa_form_data").select("field_key, field_value").eq("user_id", user!.id).eq("visa_type_id", vt.id),
+          ]);
+          formFields = fieldsRes.data || [];
+          userFormData = dataRes.data || [];
+        }
+      }
+
+      const completion = calculateProfileCompletion(
+        { whatsapp_number: profile?.whatsapp_number, facebook_url: profile?.facebook_url, linkedin_url: profile?.linkedin_url, instagram_url: profile?.instagram_url },
+        formFields,
+        userFormData
+      );
+      setProfileCompletion(completion);
+    }
+    fetchProfile();
 
     supabase
       .from("interviews")
@@ -109,16 +143,11 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
   if (loading) {
     return (
       <div className="p-6 lg:p-8 space-y-8 max-w-7xl mx-auto">
-        {/* Header skeleton */}
         <div>
           <Skeleton className="h-9 w-48 shimmer-block" />
           <Skeleton className="h-4 w-72 mt-2 shimmer-block" />
         </div>
-
-        {/* CTA skeleton */}
         <Skeleton className="h-28 w-full rounded-xl shimmer-block" />
-
-        {/* Stat cards skeleton */}
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="border-0">
@@ -133,23 +162,13 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
             </Card>
           ))}
         </div>
-
-        {/* Recent tests skeleton */}
         <div>
           <Skeleton className="h-6 w-44 mb-4 shimmer-block" />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
               <Card key={i} className="border-0">
-                <CardHeader className="pb-3">
-                  <Skeleton className="h-5 w-32 shimmer-block" />
-                  <Skeleton className="h-4 w-24 mt-1 shimmer-block" />
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-8 w-12 shimmer-block" />
-                    <Skeleton className="h-3 w-20 shimmer-block" />
-                  </div>
-                </CardContent>
+                <CardHeader className="pb-3"><Skeleton className="h-5 w-32 shimmer-block" /><Skeleton className="h-4 w-24 mt-1 shimmer-block" /></CardHeader>
+                <CardContent><div className="flex items-center justify-between"><Skeleton className="h-8 w-12 shimmer-block" /><Skeleton className="h-3 w-20 shimmer-block" /></div></CardContent>
               </Card>
             ))}
           </div>
@@ -173,6 +192,30 @@ export default function Dashboard({ onCreateInterview }: { onCreateInterview?: (
         </h1>
         <p className="text-muted-foreground text-sm">Ready to ace your visa interview? Let's practice and improve your skills today.</p>
       </div>
+
+      {/* Profile Completion CTA */}
+      {profileCompletion < 100 && (
+        <Card className="border-0 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-background">
+          <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
+            <div className="flex items-start gap-4 flex-1">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">Complete your profile to get better interview results</p>
+                <p className="text-xs text-muted-foreground mt-1">A complete profile helps our AI tailor the interview to your real situation.</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <Progress value={profileCompletion} className="h-2 flex-1 max-w-xs" />
+                  <span className="text-sm font-bold text-amber-600">{profileCompletion}%</span>
+                </div>
+              </div>
+            </div>
+            <Link to="/profile/edit">
+              <Button size="sm" variant="default" className="w-full sm:w-auto shrink-0">Complete Profile</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* CTA */}
       <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-accent/10 via-accent/5 to-background">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { calculateProfileCompletion } from "@/lib/profile-completion";
+import { Progress } from "@/components/ui/progress";
+
+const MIN_COMPLETION = 60;
 
 interface Props {
   open: boolean;
@@ -28,15 +32,40 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
   const [difficulty, setDifficulty] = useState("");
   const [loading, setLoading] = useState(false);
   const [credits, setCredits] = useState<number>(0);
+  const [profileCompletion, setProfileCompletion] = useState<number | null>(null);
+  const [loadingCompletion, setLoadingCompletion] = useState(true);
 
   useEffect(() => {
     supabase.from("countries").select("*").order("name").then(({ data }) => {
       if (data) setCountries(data);
     });
     if (user) {
-      supabase.from("profiles").select("credits").eq("user_id", user.id).single().then(({ data }) => {
-        if (data) setCredits(data.credits ?? 0);
-      });
+      // Fetch credits and profile completion
+      async function load() {
+        const { data: profile } = await supabase.from("profiles")
+          .select("credits, whatsapp_number, facebook_url, linkedin_url, instagram_url, visa_type")
+          .eq("user_id", user!.id).single();
+        if (profile) {
+          setCredits(profile.credits ?? 0);
+
+          let formFields: any[] = [];
+          let userFormData: any[] = [];
+          if (profile.visa_type) {
+            const { data: vt } = await supabase.from("visa_types").select("id").eq("name", profile.visa_type).limit(1).single();
+            if (vt) {
+              const [fieldsRes, dataRes] = await Promise.all([
+                supabase.from("visa_type_form_fields").select("field_key, is_required").eq("visa_type_id", vt.id),
+                supabase.from("user_visa_form_data").select("field_key, field_value").eq("user_id", user!.id).eq("visa_type_id", vt.id),
+              ]);
+              formFields = fieldsRes.data || [];
+              userFormData = dataRes.data || [];
+            }
+          }
+          setProfileCompletion(calculateProfileCompletion(profile, formFields, userFormData));
+        }
+        setLoadingCompletion(false);
+      }
+      load();
     }
   }, [user]);
 
@@ -108,8 +137,30 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
     (a, b) => difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty)
   );
 
+  const belowMinCompletion = profileCompletion !== null && profileCompletion < MIN_COMPLETION;
+
   return (
     <div className="space-y-4 py-4 px-1">
+      {/* Profile completion gate */}
+      {!loadingCompletion && belowMinCompletion && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium">Profile incomplete ({profileCompletion}%)</p>
+              <p className="text-xs text-muted-foreground mt-1">Please complete at least {MIN_COMPLETION}% of your profile before starting a mock test.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Progress value={profileCompletion} className="h-2 flex-1" />
+            <span className="text-xs font-bold text-amber-600">{profileCompletion}%</span>
+          </div>
+          <Link to="/profile/edit" onClick={() => onOpenChange(false)}>
+            <Button size="sm" variant="outline" className="w-full">Complete Profile</Button>
+          </Link>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label>Country</Label>
         <Select value={countryId} onValueChange={setCountryId}>
@@ -147,7 +198,11 @@ function CreateInterviewForm({ onOpenChange }: { onOpenChange: (open: boolean) =
           </SelectContent>
         </Select>
       </div>
-      <Button onClick={handleSubmit} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold" disabled={loading || credits < 10 || !difficulty}>
+      <Button
+        onClick={handleSubmit}
+        className="w-full bg-accent text-accent-foreground hover:bg-accent/90 font-semibold"
+        disabled={loading || credits < 10 || !difficulty || belowMinCompletion}
+      >
         {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Start Mock Test (10 Credits)"}
       </Button>
     </div>

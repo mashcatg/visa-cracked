@@ -383,6 +383,7 @@ function SidebarInner({ onSearchOpen, onCreateInterview, onPricingOpen, collapse
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/profile/edit")} className="cursor-pointer">
               <Pencil className="h-3.5 w-3.5 mr-2" /> Edit Full Profile
+              <ProfileCompletionBadge userId={user?.id} />
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => { setNewPassword(""); setConfirmPassword(""); setChangePassOpen(true); }} className="cursor-pointer">
               <Lock className="h-3.5 w-3.5 mr-2" /> Change Password

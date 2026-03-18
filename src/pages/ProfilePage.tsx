@@ -15,12 +15,8 @@ type ProfileData = {
   facebook_url: string;
   linkedin_url: string;
   instagram_url: string;
-  university_name: string;
-  program_name: string;
-  sevis_id: string;
   visa_country: string;
   visa_type: string;
-  start_date: string;
 };
 
 type DynamicProfileField = {
@@ -44,12 +40,8 @@ export default function ProfilePage() {
     facebook_url: "",
     linkedin_url: "",
     instagram_url: "",
-    university_name: "",
-    program_name: "",
-    sevis_id: "",
     visa_country: "",
     visa_type: "",
-    start_date: "",
   });
 
   async function loadDynamicFields(visaCountry: string, visaType: string, userId: string) {
@@ -133,7 +125,7 @@ export default function ProfilePage() {
 
     supabase
       .from("profiles")
-      .select("full_name, email, whatsapp_number, facebook_url, linkedin_url, instagram_url, university_name, program_name, sevis_id, visa_country, visa_type, start_date")
+      .select("full_name, email, whatsapp_number, facebook_url, linkedin_url, instagram_url, visa_country, visa_type")
       .eq("user_id", user.id)
       .single()
       .then(async ({ data, error }) => {
@@ -151,12 +143,8 @@ export default function ProfilePage() {
             facebook_url: data.facebook_url || "",
             linkedin_url: data.linkedin_url || "",
             instagram_url: data.instagram_url || "",
-            university_name: data.university_name || "",
-            program_name: data.program_name || "",
-            sevis_id: data.sevis_id || "",
             visa_country: data.visa_country || "",
             visa_type: data.visa_type || "",
-            start_date: data.start_date || "",
           });
 
           await loadDynamicFields(data.visa_country || "", data.visa_type || "", user.id);
@@ -182,7 +170,7 @@ export default function ProfilePage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">My Profile</h1>
-            <p className="text-sm text-muted-foreground mt-1">View your personal, social, and onboarding details.</p>
+            <p className="text-sm text-muted-foreground mt-1">View your personal, social, visa selection, and dynamic form details.</p>
           </div>
           <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => navigate("/profile/edit")}>
             <Pencil className="mr-2 h-4 w-4" />
@@ -216,23 +204,19 @@ export default function ProfilePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Onboarding Data</CardTitle>
-            <CardDescription>Visa and university details for interview preparation</CardDescription>
+            <CardTitle>Visa Selection</CardTitle>
+            <CardDescription>Selected country and visa type</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Info label="University" value={profile.university_name} />
-            <Info label="Program" value={profile.program_name} />
-            <Info label="SEVIS ID" value={profile.sevis_id} />
             <Info label="Visa Country" value={profile.visa_country} />
             <Info label="Visa Type" value={profile.visa_type} />
-            <Info label="Start Date" value={profile.start_date} />
           </CardContent>
         </Card>
 
         {dynamicFields.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Dynamic Visa Form Data</CardTitle>
+              <CardTitle>Visa Form Data</CardTitle>
               <CardDescription>All visa-type specific fields configured by admin</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -241,7 +225,7 @@ export default function ProfilePage() {
                   <h3 className="text-sm font-semibold text-foreground">{section.title}</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {section.fields.map((field) => (
-                      <div key={field.field_key} className={field.layout_width === "half" ? "md:col-span-1" : "md:col-span-2"}>
+                      <div key={field.field_key} className="md:col-span-1">
                         <Info
                           label={`${field.label}${field.is_required ? " *" : ""}`}
                           value={field.value}

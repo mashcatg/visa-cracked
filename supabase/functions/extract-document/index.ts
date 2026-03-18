@@ -21,7 +21,7 @@ function normalizeKey(value: string): string {
     .replace(/^_+|_+$/g, "");
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -57,14 +57,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    let dynamicFieldsInput = Array.isArray(fields) ? fields : [];
-    if (dynamicFieldsInput.length === 0 && visa_type_id) {
+    let dynamicFieldsInput: any[] = [];
+    if (visa_type_id) {
       const { data: fetchedFields } = await supabase
         .from("visa_type_form_fields")
         .select("field_key, label, field_type, options, is_required")
         .eq("visa_type_id", visa_type_id)
         .order("sort_order");
       dynamicFieldsInput = fetchedFields || [];
+    } else if (Array.isArray(fields)) {
+      dynamicFieldsInput = fields;
     }
 
     // Step 1: Mistral OCR

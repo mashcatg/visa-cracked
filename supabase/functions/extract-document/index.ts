@@ -81,6 +81,7 @@ Deno.serve(async (req: Request) => {
     const mimeType = file_type || "application/pdf";
     const documentUrl = `data:${mimeType};base64,${file_base64}`;
 
+    // Test with direct base64 document format instead of data URL
     const ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
       method: "POST",
       headers: {
@@ -89,8 +90,9 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         document: {
-          type: "document_url",
-          document_url: documentUrl,
+          type: "document_base64",
+          document_base64: file_base64,
+          media_type: mimeType,
         },
         model: "mistral-ocr-latest",
         include_image_base64: false,
@@ -98,8 +100,12 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!ocrRes.ok) {
-      console.error("Mistral OCR error:", ocrRes.status);
-      return new Response(JSON.stringify({ error: "OCR extraction failed" }), {
+      const errorText = await ocrRes.text();
+      console.error("Mistral OCR error:", ocrRes.status, errorText);
+      return new Response(JSON.stringify({ 
+        error: "OCR extraction failed", 
+        details: `Mistral API returned ${ocrRes.status}. Please check file format and size.`
+      }), {
         status: 500,
         headers: jsonHeaders,
       });

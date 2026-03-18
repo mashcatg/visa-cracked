@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Trash2, Plus, Pencil, Settings2, Save, Loader2, ListChecks, GripVertical, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Tables } from "@/integrations/supabase/types";
 import DataTableControls from "@/components/admin/DataTableControls";
 import { downloadCSV, type CsvColumn } from "@/lib/csv-export";
@@ -50,6 +52,7 @@ type FormField = {
 };
 
 export default function AdminVisaTypes() {
+  const isMobile = useIsMobile();
   const [visaTypes, setVisaTypes] = useState<any[]>([]);
   const [countries, setCountries] = useState<Tables<"countries">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -321,180 +324,357 @@ export default function AdminVisaTypes() {
       </div>
 
       {/* Add/Edit Visa Type Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>{editing ? "Edit Visa Type" : "Add Visa Type"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Country</Label>
-              <Select value={countryId} onValueChange={setCountryId}>
-                <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
-                <SelectContent>{countries.map((c) => <SelectItem key={c.id} value={c.id}>{c.flag_emoji} {c.name}</SelectItem>)}</SelectContent>
-              </Select>
+      {isMobile ? (
+        <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+          <SheetContent side="bottom" className="max-h-[90vh]">
+            <SheetHeader><SheetTitle>{editing ? "Edit Visa Type" : "Add Visa Type"}</SheetTitle></SheetHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Select value={countryId} onValueChange={setCountryId}>
+                  <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+                  <SelectContent>{countries.map((c) => <SelectItem key={c.id} value={c.id}>{c.flag_emoji} {c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="F1 Student Visa" /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" /></div>
+              <Button onClick={handleSave} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">Save</Button>
             </div>
-            <div className="space-y-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="F1 Student Visa" /></div>
-            <div className="space-y-2"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" /></div>
-            <Button onClick={handleSave} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">Save</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader><DialogTitle>{editing ? "Edit Visa Type" : "Add Visa Type"}</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Select value={countryId} onValueChange={setCountryId}>
+                  <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
+                  <SelectContent>{countries.map((c) => <SelectItem key={c.id} value={c.id}>{c.flag_emoji} {c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="F1 Student Visa" /></div>
+              <div className="space-y-2"><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" /></div>
+              <Button onClick={handleSave} className="w-full bg-accent text-accent-foreground hover:bg-accent/90">Save</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Difficulty Modes Dialog */}
-      <Dialog open={modesDialogOpen} onOpenChange={setModesDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader><DialogTitle>Difficulty Modes — {modesVisaType?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
-            {modes.map((mode) => (
-              <div key={mode.difficulty} className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <Badge variant={mode.vapi_assistant_id ? "default" : "secondary"} className="capitalize text-sm">{mode.difficulty}</Badge>
-                  {mode.vapi_assistant_id && <span className="text-xs text-muted-foreground">Configured ✓</span>}
+      {isMobile ? (
+        <Sheet open={modesDialogOpen} onOpenChange={setModesDialogOpen}>
+          <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
+            <SheetHeader><SheetTitle>Difficulty Modes — {modesVisaType?.name}</SheetTitle></SheetHeader>
+            <div className="flex-1 overflow-y-auto space-y-6 py-4">
+              {modes.map((mode) => (
+                <div key={mode.difficulty} className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant={mode.vapi_assistant_id ? "default" : "secondary"} className="capitalize text-sm">{mode.difficulty}</Badge>
+                    {mode.vapi_assistant_id && <span className="text-xs text-muted-foreground">Configured ✓</span>}
+                  </div>
+                  <div className="grid gap-3">
+                    <div className="space-y-1"><Label className="text-xs">Assistant ID</Label><Input value={mode.vapi_assistant_id} onChange={(e) => updateMode(mode.difficulty, "vapi_assistant_id", e.target.value)} placeholder="asst_..." /></div>
+                    <div className="space-y-1"><Label className="text-xs">Public Key</Label><Input value={mode.vapi_public_key} onChange={(e) => updateMode(mode.difficulty, "vapi_public_key", e.target.value)} placeholder="pk_..." /></div>
+                    <div className="space-y-1"><Label className="text-xs">Private Key</Label><Input type="password" value={mode.vapi_private_key} onChange={(e) => updateMode(mode.difficulty, "vapi_private_key", e.target.value)} placeholder="sk_..." /></div>
+                    <div className="space-y-1"><Label className="text-xs">Judgment System Prompt</Label><Textarea value={mode.judgment_system_prompt || ""} onChange={(e) => updateMode(mode.difficulty, "judgment_system_prompt", e.target.value)} placeholder="Custom system prompt for AI analysis..." className="min-h-[80px] text-xs" /></div>
+                    <div className="space-y-1"><Label className="text-xs">Output Structure (JSON)</Label><Textarea value={mode.output_structure || ""} onChange={(e) => updateMode(mode.difficulty, "output_structure", e.target.value)} placeholder='{"difficulty":"Hard","verdict":"","overall_score":0,...}' className="min-h-[100px] text-xs font-mono" /></div>
+                  </div>
+                  <Button size="sm" onClick={() => handleSaveMode(mode)} disabled={savingMode === mode.difficulty} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    {savingMode === mode.difficulty ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Saving...</> : <><Save className="mr-2 h-3 w-3" /> Save {mode.difficulty}</>}
+                  </Button>
                 </div>
-                <div className="grid gap-3">
-                  <div className="space-y-1"><Label className="text-xs">Assistant ID</Label><Input value={mode.vapi_assistant_id} onChange={(e) => updateMode(mode.difficulty, "vapi_assistant_id", e.target.value)} placeholder="asst_..." /></div>
-                  <div className="space-y-1"><Label className="text-xs">Public Key</Label><Input value={mode.vapi_public_key} onChange={(e) => updateMode(mode.difficulty, "vapi_public_key", e.target.value)} placeholder="pk_..." /></div>
-                  <div className="space-y-1"><Label className="text-xs">Private Key</Label><Input type="password" value={mode.vapi_private_key} onChange={(e) => updateMode(mode.difficulty, "vapi_private_key", e.target.value)} placeholder="sk_..." /></div>
-                  <div className="space-y-1"><Label className="text-xs">Judgment System Prompt</Label><Textarea value={mode.judgment_system_prompt || ""} onChange={(e) => updateMode(mode.difficulty, "judgment_system_prompt", e.target.value)} placeholder="Custom system prompt for AI analysis..." className="min-h-[80px] text-xs" /></div>
-                  <div className="space-y-1"><Label className="text-xs">Output Structure (JSON)</Label><Textarea value={mode.output_structure || ""} onChange={(e) => updateMode(mode.difficulty, "output_structure", e.target.value)} placeholder='{"difficulty":"Hard","verdict":"","overall_score":0,...}' className="min-h-[100px] text-xs font-mono" /></div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={modesDialogOpen} onOpenChange={setModesDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader><DialogTitle>Difficulty Modes — {modesVisaType?.name}</DialogTitle></DialogHeader>
+            <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
+              {modes.map((mode) => (
+                <div key={mode.difficulty} className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant={mode.vapi_assistant_id ? "default" : "secondary"} className="capitalize text-sm">{mode.difficulty}</Badge>
+                    {mode.vapi_assistant_id && <span className="text-xs text-muted-foreground">Configured ✓</span>}
+                  </div>
+                  <div className="grid gap-3">
+                    <div className="space-y-1"><Label className="text-xs">Assistant ID</Label><Input value={mode.vapi_assistant_id} onChange={(e) => updateMode(mode.difficulty, "vapi_assistant_id", e.target.value)} placeholder="asst_..." /></div>
+                    <div className="space-y-1"><Label className="text-xs">Public Key</Label><Input value={mode.vapi_public_key} onChange={(e) => updateMode(mode.difficulty, "vapi_public_key", e.target.value)} placeholder="pk_..." /></div>
+                    <div className="space-y-1"><Label className="text-xs">Private Key</Label><Input type="password" value={mode.vapi_private_key} onChange={(e) => updateMode(mode.difficulty, "vapi_private_key", e.target.value)} placeholder="sk_..." /></div>
+                    <div className="space-y-1"><Label className="text-xs">Judgment System Prompt</Label><Textarea value={mode.judgment_system_prompt || ""} onChange={(e) => updateMode(mode.difficulty, "judgment_system_prompt", e.target.value)} placeholder="Custom system prompt for AI analysis..." className="min-h-[80px] text-xs" /></div>
+                    <div className="space-y-1"><Label className="text-xs">Output Structure (JSON)</Label><Textarea value={mode.output_structure || ""} onChange={(e) => updateMode(mode.difficulty, "output_structure", e.target.value)} placeholder='{"difficulty":"Hard","verdict":"","overall_score":0,...}' className="min-h-[100px] text-xs font-mono" /></div>
+                  </div>
+                  <Button size="sm" onClick={() => handleSaveMode(mode)} disabled={savingMode === mode.difficulty} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    {savingMode === mode.difficulty ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Saving...</> : <><Save className="mr-2 h-3 w-3" /> Save {mode.difficulty}</>}
+                  </Button>
                 </div>
-                <Button size="sm" onClick={() => handleSaveMode(mode)} disabled={savingMode === mode.difficulty} className="bg-accent text-accent-foreground hover:bg-accent/90">
-                  {savingMode === mode.difficulty ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Saving...</> : <><Save className="mr-2 h-3 w-3" /> Save {mode.difficulty}</>}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Form Fields Builder Dialog */}
-      <Dialog open={fieldsDialogOpen} onOpenChange={setFieldsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader><DialogTitle>Form Fields — {fieldsVisaType?.name}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
-            <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
-            {formFields.length === 0 && (
-              <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
-            )}
-            {formFields.length > 0 && formFields.map((field, index) => {
-              const isOpen = openFieldIndex === index;
-              return (
-                <div
-                  key={field.id ?? `field-${index}-${field.field_key || "new"}`}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 transition-all",
-                    dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
-                  )}
-                  draggable
-                  onMouseEnter={() => setOpenFieldIndex(index)}
-                  onMouseLeave={() => setOpenFieldIndex((current) => (current === index ? null : current))}
-                  onDragStart={() => setDraggingFieldIndex(index)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOverFieldIndex(index);
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggingFieldIndex !== null) {
-                      moveFormField(draggingFieldIndex, index);
-                    }
-                    setDraggingFieldIndex(null);
-                    setDragOverFieldIndex(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggingFieldIndex(null);
-                    setDragOverFieldIndex(null);
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
+      {isMobile ? (
+        <Sheet open={fieldsDialogOpen} onOpenChange={setFieldsDialogOpen}>
+          <SheetContent side="bottom" className="max-h-[90vh] flex flex-col">
+            <SheetHeader><SheetTitle>Form Fields — {fieldsVisaType?.name}</SheetTitle></SheetHeader>
+            <div className="flex-1 overflow-y-auto space-y-4 py-4">
+              <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
+              {formFields.length === 0 && (
+                <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
+              )}
+              {formFields.length > 0 && formFields.map((field, index) => {
+                const isOpen = openFieldIndex === index;
+                return (
+                  <div
+                    key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                    className={cn(
+                      "rounded-lg border px-3 py-2 transition-all",
+                      dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
+                    )}
+                    draggable
+                    onDragStart={() => setDraggingFieldIndex(index)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverFieldIndex(index);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggingFieldIndex !== null) {
+                        moveFormField(draggingFieldIndex, index);
+                      }
+                      setDraggingFieldIndex(null);
+                      setDragOverFieldIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingFieldIndex(null);
+                      setDragOverFieldIndex(null);
+                    }}
+                  >
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
-                        <span className="text-sm font-semibold truncate">{field.label || "Untitled Field"}</span>
-                        {field.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
+                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
+                            <span className="text-sm font-semibold truncate">{field.label || "Untitled Field"}</span>
+                            {field.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
+                          </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => setOpenFieldIndex(isOpen ? null : index)}>
+                          {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {(field.section_title || "General")} · {field.layout_width === "half" ? "Half Width" : "Full Width"}
-                      </p>
+                      <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
+                        {field.section_title || "General"} • {field.layout_width === "half" ? "Half Width" : "Full Width"}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <Button type="button" variant="ghost" size="icon" onClick={() => setOpenFieldIndex(isOpen ? null : index)}>
-                        {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
+                    {isOpen && (
+                      <div className="mt-3 space-y-3 bg-muted/20 p-3 rounded">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Section Title</Label>
+                            <Input value={field.section_title} onChange={e => updateFormField(index, "section_title", e.target.value)} placeholder="e.g. Personal Details" className="text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Desktop Width</Label>
+                            <Select value={field.layout_width} onValueChange={(v: "full" | "half") => updateFormField(index, "layout_width", v)}>
+                              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="full">Full Width</SelectItem>
+                                <SelectItem value="half">Half Width (side-by-side)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Label</Label>
+                            <Input value={field.label} onChange={e => updateFormField(index, "label", e.target.value)} placeholder="e.g. University Name" className="text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Field Key</Label>
+                            <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. sponsor_name" className="text-sm font-mono" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Type</Label>
+                            <Select value={field.field_type} onValueChange={v => updateFormField(index, "field_type", v)}>
+                              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{FIELD_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Placeholder</Label>
+                            <Input value={field.placeholder} onChange={e => updateFormField(index, "placeholder", e.target.value)} placeholder="Hint text" className="text-sm" />
+                          </div>
+                        </div>
+                        {field.field_type === "select" && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Options (comma-separated)</Label>
+                            <Input value={(field.options || []).join(", ")} onChange={e => updateFormField(index, "options", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} placeholder="Option 1, Option 2, Option 3" className="text-sm" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Switch checked={field.is_required} onCheckedChange={v => updateFormField(index, "is_required", v)} />
+                          <Label className="text-xs">Required</Label>
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  {isOpen && (
-                    <div className="mt-3 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Section Title</Label>
-                          <Input value={field.section_title} onChange={e => updateFormField(index, "section_title", e.target.value)} placeholder="e.g. Personal Details" className="text-sm" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Desktop Width</Label>
-                          <Select value={field.layout_width} onValueChange={(v: "full" | "half") => updateFormField(index, "layout_width", v)}>
-                            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="full">Full Width</SelectItem>
-                              <SelectItem value="half">Half Width (side-by-side)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Label</Label>
-                          <Input value={field.label} onChange={e => updateFormField(index, "label", e.target.value)} placeholder="e.g. University Name" className="text-sm" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Field Key</Label>
-                          <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. sponsor_name" className="text-sm font-mono" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Type</Label>
-                          <Select value={field.field_type} onValueChange={v => updateFormField(index, "field_type", v)}>
-                            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>{FIELD_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Placeholder</Label>
-                          <Input value={field.placeholder} onChange={e => updateFormField(index, "placeholder", e.target.value)} placeholder="Hint text" className="text-sm" />
-                        </div>
-                      </div>
-                      {field.field_type === "select" && (
-                        <div className="space-y-1 mt-1">
-                          <Label className="text-xs">Options (comma-separated)</Label>
-                          <Input value={(field.options || []).join(", ")} onChange={e => updateFormField(index, "options", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} placeholder="Option 1, Option 2, Option 3" className="text-sm" />
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <Switch checked={field.is_required} onCheckedChange={v => updateFormField(index, "is_required", v)} />
-                        <Label className="text-xs">Required</Label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <div className="flex gap-2">
+                );
+              })}
+            </div>
+            <div className="sticky bottom-0 left-0 right-0 bg-background border-t p-3 flex gap-2">
               <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
               <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">
                 {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Fields</>}
               </Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={fieldsDialogOpen} onOpenChange={setFieldsDialogOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader><DialogTitle>Form Fields — {fieldsVisaType?.name}</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto">
+              <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
+              {formFields.length === 0 && (
+                <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
+              )}
+              {formFields.length > 0 && formFields.map((field, index) => {
+                const isOpen = openFieldIndex === index;
+                return (
+                  <div
+                    key={field.id ?? `field-${index}-${field.field_key || "new"}`}
+                    className={cn(
+                      "rounded-lg border px-3 py-2 transition-all",
+                      dragOverFieldIndex === index ? "border-accent ring-1 ring-accent/40" : "border-border"
+                    )}
+                    draggable
+                    onDragStart={() => setDraggingFieldIndex(index)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverFieldIndex(index);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggingFieldIndex !== null) {
+                        moveFormField(draggingFieldIndex, index);
+                      }
+                      setDraggingFieldIndex(null);
+                      setDragOverFieldIndex(null);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingFieldIndex(null);
+                      setDragOverFieldIndex(null);
+                    }}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Field {index + 1}</span>
+                            <span className="text-sm font-semibold truncate">{field.label || "Untitled Field"}</span>
+                            {field.is_required && <Badge variant="secondary" className="text-[10px]">Required</Badge>}
+                          </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => setOpenFieldIndex(isOpen ? null : index)}>
+                          {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldDown(index)} disabled={index === formFields.length - 1}>
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeFormField(index)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
+                        {field.section_title || "General"} • {field.layout_width === "half" ? "Half Width" : "Full Width"}
+                      </div>
+                    </div>
+
+                    {isOpen && (
+                      <div className="mt-3 space-y-3 bg-muted/20 p-3 rounded">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Section Title</Label>
+                            <Input value={field.section_title} onChange={e => updateFormField(index, "section_title", e.target.value)} placeholder="e.g. Personal Details" className="text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Desktop Width</Label>
+                            <Select value={field.layout_width} onValueChange={(v: "full" | "half") => updateFormField(index, "layout_width", v)}>
+                              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="full">Full Width</SelectItem>
+                                <SelectItem value="half">Half Width (side-by-side)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Label</Label>
+                            <Input value={field.label} onChange={e => updateFormField(index, "label", e.target.value)} placeholder="e.g. University Name" className="text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Field Key</Label>
+                            <Input value={field.field_key} onChange={e => updateFormField(index, "field_key", e.target.value.toLowerCase().replace(/\s+/g, "_"))} placeholder="e.g. sponsor_name" className="text-sm font-mono" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Type</Label>
+                            <Select value={field.field_type} onValueChange={v => updateFormField(index, "field_type", v)}>
+                              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>{FIELD_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Placeholder</Label>
+                            <Input value={field.placeholder} onChange={e => updateFormField(index, "placeholder", e.target.value)} placeholder="Hint text" className="text-sm" />
+                          </div>
+                        </div>
+                        {field.field_type === "select" && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Options (comma-separated)</Label>
+                            <Input value={(field.options || []).join(", ")} onChange={e => updateFormField(index, "options", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} placeholder="Option 1, Option 2, Option 3" className="text-sm" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Switch checked={field.is_required} onCheckedChange={v => updateFormField(index, "is_required", v)} />
+                          <Label className="text-xs">Required</Label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={addFormField} className="flex-1"><Plus className="h-4 w-4 mr-2" /> Add Field</Button>
+                <Button onClick={handleSaveFields} disabled={savingFields} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90">
+                  {savingFields ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Save className="mr-2 h-4 w-4" /> Save Fields</>}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

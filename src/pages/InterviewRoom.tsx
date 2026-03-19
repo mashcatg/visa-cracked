@@ -150,11 +150,8 @@ export default function InterviewRoom() {
           setConnectionQuality("poor");
         });
 
-        const call = await (vapi as any).start({
-          assistantId: data.assistantId,
-          assistantOverrides: {
-            variableValues: data.variableValues || {},
-          },
+        const call = await (vapi as any).start(data.assistantId, {
+          variableValues: data.variableValues || {},
         });
         setCallData(call);
         if (call?.id) {

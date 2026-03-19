@@ -123,10 +123,19 @@ Deno.serve(async (req: Request) => {
       .update({ status: "in_progress" })
       .eq("id", interviewId);
 
-    // Build variableValues only from dynamic visa form data
-    const variableValues: Record<string, string> = {
-      ...dynamicFormData,
-    };
+    // Build variableValues from profile + dynamic visa form data
+    const variableValues: Record<string, string> = {};
+
+    // Add profile-level fields
+    if (profile) {
+      if (profile.full_name) variableValues["full_name"] = profile.full_name;
+      if (profile.visa_country) variableValues["visa_country"] = profile.visa_country;
+      if (profile.visa_type) variableValues["visa_type"] = profile.visa_type;
+      if (profile.whatsapp_number) variableValues["whatsapp_number"] = profile.whatsapp_number;
+    }
+
+    // Add all dynamic form fields (admin-created per visa type)
+    Object.assign(variableValues, dynamicFormData);
 
     return new Response(
       JSON.stringify({ publicKey: vapiPublicKey, assistantId, variableValues }),

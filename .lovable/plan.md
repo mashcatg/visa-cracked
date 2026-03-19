@@ -1,109 +1,69 @@
 
 
+# Fix Build Errors, Deploy Extract-Document, Fix Form Builder UX
 
-# Add Difficulty Modes to Mock Test System
+## Analysis of Current State
 
-## Overview
+The extract-document edge function already correctly fetches dynamic fields from `visa_type_form_fields` based on `visa_type_id` and uses them for both heuristic and AI extraction. It's ready to deploy -- just needs the build errors fixed first.
 
-Restructure the mock test creation flow to include difficulty selection (Easy / Medium / Hard). Each difficulty mode has its own VAPI credentials, managed through a new admin interface. This replaces the current system where VAPI credentials live directly on visa types.
+## 1. Fix Build Errors (5 edge functions + edge-runtime.d.ts)
 
-Also fixes the build error caused by a missing `validate-coupon` entry in `supabase/config.toml`.
+**`error.message` on unknown type** -- 5 catch blocks use `error.message` without casting. Fix by casting to `Error`:
+- `analyze-interview/index.ts` line 484: `(error as Error).message`
+- `fetch-vapi-data/index.ts` line 131: same
+- `generate-report-pdf/index.ts` line 284: same
+- `get-interview-results/index.ts` line 145: same
+- `process-referral/index.ts` line 46: `(err as Error).message`
 
----
+**`Deno` redeclaration** in `edge-runtime.d.ts` -- the custom `declare const Deno` conflicts with Deno's built-in types. Fix by removing lines 5-10 (the Deno declaration), keeping only the module declaration for esm.sh.
 
-## Current Flow vs New Flow
+## 2. Remove Default "New Section Title" Input from Form Builder
 
-```text
-CURRENT:  Country -> Visa Type (has VAPI creds) -> Start
-NEW:      Country -> Visa Type -> Difficulty (Easy/Medium/Hard, has VAPI creds) -> Start
+Currently, a "New Section Title" input with label is always shown at the top of the form builder dialog (both mobile and desktop). The user wants sections added only via the "Add Title" button.
+
+**Fix**: Remove the always-visible "New Section Title" input + label block (lines 513-516 for mobile, lines 692-695 for desktop). Change the `addSection` function to prompt or add a section with empty title that the user types inline (in the section row's input). Remove the `newSectionTitle` state variable.
+
+Updated `addSection`:
+```typescript
+function addSection() {
+  setFormFields((prev) => [...prev, {
+    item_type: "section",
+    label: "", field_key: "", field_type: "text",
+    placeholder: "", is_required: false,
+    sort_order: prev.length, options: [],
+    section_title: "",  // empty, user types inline
+    layout_width: "1",
+  }]);
+}
 ```
 
----
+## 3. Fix Section Title Input Losing Focus
 
-## 1. Database Changes
+The section title Input is inside a `draggable` div. When the user clicks/types in the input, the browser's drag behavior can steal focus. Also, React re-rendering with index-based keys can cause focus loss.
 
-### New table: `difficulty_modes`
+**Fix**:
+- Add `onMouseDown={(e) => e.stopPropagation()}` and `draggable={false}` to the section title Input elements (both mobile and desktop instances)
+- Give sections stable unique keys using a generated ID when creating them (e.g., `crypto.randomUUID()`)
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | PK, default gen_random_uuid() |
-| visa_type_id | uuid | FK to visa_types.id, NOT NULL |
-| difficulty | text | "easy", "medium", or "hard" |
-| vapi_assistant_id | text | Nullable |
-| vapi_public_key | text | Nullable |
-| vapi_private_key | text | Nullable |
-| judgment_system_prompt | text | Nullable, custom AI analysis prompt |
-| created_at | timestamptz | Default now() |
+## 4. Deploy extract-document
 
-- Unique constraint on (visa_type_id, difficulty) to prevent duplicates
-- RLS: Admins can CRUD; authenticated users can SELECT
+Once build errors are resolved, the function deploys automatically. It already:
+- Accepts `visa_type_id` in the request body
+- Fetches dynamic fields from `visa_type_form_fields`
+- Uses Mistral OCR + Gemini 2.5 Flash to extract only those field keys
+- Returns matched key-value pairs with `__debug` metadata
 
-### Modify `interviews` table
+No code changes needed to the function itself.
 
-- Add column `difficulty` (text, nullable, default null) to store the selected difficulty for each mock test
+## Files Changed
 
-### Extend `profiles` table
+| File | Change |
+|------|--------|
+| `supabase/functions/edge-runtime.d.ts` | Remove `Deno` declaration (keep module declaration) |
+| `supabase/functions/analyze-interview/index.ts` | Cast error to `Error` in catch |
+| `supabase/functions/fetch-vapi-data/index.ts` | Cast error to `Error` in catch |
+| `supabase/functions/generate-report-pdf/index.ts` | Cast error to `Error` in catch |
+| `supabase/functions/get-interview-results/index.ts` | Cast error to `Error` in catch |
+| `supabase/functions/process-referral/index.ts` | Cast err to `Error` in catch |
+| `src/pages/admin/AdminVisaTypes.tsx` | Remove always-visible section title input, fix inline section title input focus loss |
 
-- `whatsapp_number`, `facebook_url`, `linkedin_url`, `instagram_url`
-- `onboarding_completed` (boolean, default false)
-
----
-
-## 2. Admin Panel: Manage Difficulty Modes
-
-### `AdminVisaTypes.tsx`
-
-- "Modes" button on each visa type row opens a dialog with Easy/Medium/Hard cards
-- Each card has: Assistant ID, Public Key, Private Key, Judgment System Prompt
-- Upserts into `difficulty_modes`
-
----
-
-## 3. Create Mock Test Modal
-
-### `CreateInterviewModal.tsx`
-
-Country -> Visa Type -> Difficulty (Easy / Medium / Hard) -> Start
-
----
-
-## 4. Onboarding Flow
-
-### `src/pages/Onboarding.tsx`
-
-3-step wizard:
-1. Contact & Social (WhatsApp required, Facebook/LinkedIn/Instagram optional)
-2. Visa Details (upload document for OCR extraction or manual entry)
-3. Review & Confirm
-
-### `src/pages/DashboardPage.tsx`
-
-Redirects to `/onboarding` if `onboarding_completed` is false.
-
----
-
-## 5. Document OCR Pipeline
-
-### `supabase/functions/extract-document/index.ts`
-
-1. Receives base64 document
-2. Mistral OCR (`mistral-ocr-latest`) extracts text
-3. Gemini 2.5 Flash structures data into profile fields
-4. Returns only dynamic data (added by admins as form filed from the admin panel)
-
----
-
-## 6. Judgment System Prompt
-
-### `analyze-interview` Edge Function
-
-- Fetches `judgment_system_prompt` from `difficulty_modes` table
-- Uses it as base system prompt for AI analysis (with {country}, {visaType}, {difficulty} placeholders)
-- Falls back to generic prompt if not configured
-
----
-
-## 7. Pricing Fix
-
-- Ultimate plan: $54 / ৳5,400 (40% discount from original $90 / ৳9,000)
-- Badge shows "🔥 40% OFF"

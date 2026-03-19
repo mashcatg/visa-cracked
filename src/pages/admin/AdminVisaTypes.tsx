@@ -93,7 +93,7 @@ export default function AdminVisaTypes() {
   const [savingMode, setSavingMode] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
-  const [newSectionTitle, setNewSectionTitle] = useState("");
+  
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
   const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
   const [openFieldIndex, setOpenFieldIndex] = useState<number | null>(null);

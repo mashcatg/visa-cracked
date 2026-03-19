@@ -192,7 +192,6 @@ export default function AdminVisaTypes() {
     }
 
     setFormFields(rebuilt);
-    setNewSectionTitle("");
     setOpenFieldIndex(null);
     setFieldsDialogOpen(true);
   }

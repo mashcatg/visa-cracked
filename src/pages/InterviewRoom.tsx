@@ -299,7 +299,7 @@ export default function InterviewRoom() {
                 {/* Timer */}
                 <div className={`flex items-center gap-2 font-mono font-semibold px-3 py-1.5 rounded-lg backdrop-blur-md transition-all ${
                   remaining <= 30 
-                    ? "bg-red-500/10 text-red-300 border border-red-500/30" 
+                    ? "bg-destructive/10 text-destructive border border-destructive/30" 
                     : "bg-secondary/20 text-secondary border border-border/40"
                 }`}>
                   <Clock className="h-4 w-4" />
@@ -314,7 +314,7 @@ export default function InterviewRoom() {
                       <div
                         key={i}
                         className={`h-1.5 w-1 rounded-full transition-all ${
-                          connectionQuality === "good" ? "bg-accent" : connectionQuality === "fair" ? "bg-secondary" : "bg-red-400"
+                          connectionQuality === "good" ? "bg-accent" : connectionQuality === "fair" ? "bg-secondary" : "bg-destructive"
                         } ${i < (connectionQuality === "good" ? 4 : connectionQuality === "fair" ? 2 : 1) ? "opacity-100" : "opacity-30"}`}
                       />
                     ))}
@@ -365,7 +365,7 @@ export default function InterviewRoom() {
 
               {/* Status Label */}
               <div className="relative z-10 text-center">
-                <p className="text-white font-semibold text-lg md:text-xl">
+                <p className="text-foreground font-semibold text-lg md:text-xl">
                   {isSpeaking === "assistant" ? "🎤 Listening..." : "Visa Officer"}
                 </p>
                 <p className="text-secondary/80 text-xs md:text-sm mt-1">
@@ -403,7 +403,7 @@ export default function InterviewRoom() {
                   <User className={`${isMobile ? "h-5 w-5" : "h-7 w-7"} text-accent`} />
                 </div>
                 {/* PIP Label */}
-                <div className="text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="text-foreground text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
                   OFFICER
                 </div>
               </div>
@@ -421,7 +421,7 @@ export default function InterviewRoom() {
                 <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${lastTranscript.role === "You" ? "text-secondary" : "text-accent"}`}>
                   {lastTranscript.role}
                 </p>
-                <p className="text-white/90 text-sm leading-relaxed">{lastTranscript.text}</p>
+                <p className="text-foreground text-sm leading-relaxed">{lastTranscript.text}</p>
               </div>
             </div>
           )}
@@ -456,7 +456,7 @@ export default function InterviewRoom() {
                 
                 {/* Status Message */}
                 <div className="space-y-2">
-                  <p className="text-white font-bold text-xl transition-all duration-500">
+                  <p className="text-foreground font-bold text-xl transition-all duration-500">
                     {CONNECTING_MESSAGES[connectingMsgIdx]}
                   </p>
                   <p className="text-secondary/80 text-sm">Please allow camera & microphone access</p>
@@ -477,7 +477,7 @@ export default function InterviewRoom() {
         </div>
 
         {/* Premium Controls Bar */}
-        <div className="relative z-20 bg-gradient-to-r from-primary/70 to-secondary/70 backdrop-blur-xl border-t border-border/40 shadow-2xl">
+        <div className="relative z-20 bg-card/90 backdrop-blur-xl border-t border-border/40 shadow-xl">
           <div className="flex items-center justify-center gap-3 px-4 py-6">
             {/* Microphone Control */}
             <button
@@ -488,13 +488,13 @@ export default function InterviewRoom() {
               }}
               className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                 micOn 
-                  ? "bg-gradient-to-br from-primary/70 to-secondary/70 hover:from-primary/80 hover:to-secondary/80 text-secondary border border-border" 
-                  : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white border border-red-500"
+                  ? "bg-secondary/20 hover:bg-secondary/30 text-foreground border border-border" 
+                  : "bg-destructive hover:bg-destructive/90 text-destructive-foreground border border-destructive/60"
               }`}
               title={micOn ? "Mute Microphone" : "Unmute Microphone"}
             >
               {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-primary text-secondary text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs font-medium px-3 py-1.5 rounded-lg border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                 {micOn ? "Your Mic ON" : "Your Mic OFF"}
               </span>
             </button>
@@ -505,13 +505,13 @@ export default function InterviewRoom() {
                 onClick={toggleAssistantMute}
                 className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                   assistantMuted 
-                    ? "bg-gradient-to-br from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 text-white border border-orange-500" 
-                    : "bg-gradient-to-br from-primary/70 to-secondary/70 hover:from-primary/80 hover:to-secondary/80 text-secondary border border-border"
+                    ? "bg-accent/20 hover:bg-accent/30 text-accent border border-accent/40" 
+                    : "bg-secondary/20 hover:bg-secondary/30 text-foreground border border-border"
                 }`}
                 title={assistantMuted ? "Unmute Assistant" : "Mute Assistant"}
               >
                 {assistantMuted ? <Volume className="h-5 w-5 translate-x-0.5" /> : <Volume2 className="h-5 w-5" />}
-                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-primary text-secondary text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs font-medium px-3 py-1.5 rounded-lg border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                   {assistantMuted ? "Assistant PAUSED" : "Pause Assistant"}
                 </span>
               </button>
@@ -522,13 +522,13 @@ export default function InterviewRoom() {
               onClick={() => setSubtitlesOn((s) => !s)}
               className={`group relative h-12 w-12 rounded-full flex items-center justify-center transition-all hover:scale-110 ${
                 subtitlesOn 
-                  ? "bg-gradient-to-br from-violet-600 to-violet-700 hover:from-violet-500 hover:to-violet-600 text-white border border-violet-500" 
-                  : "bg-gradient-to-br from-primary/70 to-secondary/70 hover:from-primary/80 hover:to-secondary/80 text-secondary/60 border border-border"
+                  ? "bg-accent hover:bg-accent/90 text-accent-foreground border border-accent/60" 
+                  : "bg-secondary/20 hover:bg-secondary/30 text-muted-foreground border border-border"
               }`}
               title={subtitlesOn ? "Hide Subtitles" : "Show Subtitles"}
             >
               <Subtitles className="h-5 w-5" />
-              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-primary text-secondary text-xs font-medium px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground text-xs font-medium px-3 py-1.5 rounded-lg border border-border opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                 {subtitlesOn ? "Captions ON" : "Captions OFF"}
               </span>
             </button>
@@ -537,7 +537,7 @@ export default function InterviewRoom() {
             <div className="w-0.5 h-8 bg-gradient-to-b from-transparent via-border to-transparent mx-2" />
             
             <Button
-              className="relative h-12 px-8 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold rounded-full shadow-lg shadow-red-500/30 hover:shadow-red-500/50 transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative h-12 px-8 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold rounded-full transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => vapiRef.current?.stop()}
               disabled={!isConnected}
             >

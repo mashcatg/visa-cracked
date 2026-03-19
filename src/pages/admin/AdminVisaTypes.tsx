@@ -240,12 +240,6 @@ export default function AdminVisaTypes() {
   }
 
   function addSection() {
-    const title = newSectionTitle.trim();
-    if (!title) {
-      toast.error("Section title is required");
-      return;
-    }
-
     setFormFields((prev) => [...prev, {
       item_type: "section",
       label: "",
@@ -255,10 +249,9 @@ export default function AdminVisaTypes() {
       is_required: false,
       sort_order: prev.length,
       options: [],
-      section_title: title,
+      section_title: "",
       layout_width: "1",
     }]);
-    setNewSectionTitle("");
   }
 
   function updateFormField(index: number, field: string, value: any) {

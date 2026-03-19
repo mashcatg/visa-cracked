@@ -11,6 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getVisaVerdict } from "@/lib/score-verdict";
 
+const REPORT_POLL_TIMEOUT_MS = 60000;
+
 interface GrammarMistake {
   original: string;
   corrected: string;
@@ -32,6 +34,10 @@ interface VapiData {
   messages: Array<{ role: string; content: string; timestamp?: number }>;
   duration: number | null;
   endedReason: string | null;
+}
+
+function isReportReady(report: any) {
+  return report?.summary != null && report?.english_score != null;
 }
 
 export default function InterviewReport() {
@@ -75,19 +81,29 @@ export default function InterviewReport() {
     let isComponentMounted = true;
 
     async function fetchData() {
-      const { data: interviewData } = await supabase
-        .from("interviews")
-        .select("*, countries(name, flag_emoji), visa_types(name), interview_reports(*)")
-        .eq("id", id)
-        .single();
+      try {
+        const { data: interviewData, error } = await supabase
+          .from("interviews")
+          .select("*, countries(name, flag_emoji), visa_types(name), interview_reports(*)")
+          .eq("id", id)
+          .single();
 
-      if (interviewData && isComponentMounted) {
-        setInterview(interviewData);
-        if (interviewData.interview_reports) setReport(interviewData.interview_reports);
-        if (interviewData.vapi_call_id && interviewData.status === "completed") fetchVapiData(id!);
+        if (error) throw error;
+
+        if (interviewData && isComponentMounted) {
+          setInterview(interviewData);
+          if (interviewData.interview_reports) setReport(interviewData.interview_reports);
+          if (interviewData.vapi_call_id && interviewData.status === "completed") fetchVapiData(id!);
+        }
+
+        return interviewData;
+      } catch (error) {
+        console.error("Failed to load interview report:", error);
+        if (isComponentMounted) setAnalysisFailed(true);
+        return null;
+      } finally {
+        if (isComponentMounted) setLoading(false);
       }
-      setLoading(false);
-      return interviewData;
     }
 
     fetchData().then((data) => {
@@ -97,11 +113,11 @@ export default function InterviewReport() {
         pollStartRef.current = Date.now();
         pollInterval = setInterval(async () => {
           const elapsed = Date.now() - pollStartRef.current;
-          if (elapsed > 120000) {
+          if (elapsed > REPORT_POLL_TIMEOUT_MS) {
             if (pollInterval) clearInterval(pollInterval);
             if (isComponentMounted) {
               setReport((currentReport) => {
-                if (!currentReport || (!currentReport.summary && !currentReport.english_score && !currentReport.detailed_feedback)) {
+                if (!isReportReady(currentReport)) {
                   setAnalysisFailed(true);
                 }
                 return currentReport;
@@ -120,7 +136,7 @@ export default function InterviewReport() {
             if (freshInterview.interview_reports) {
               setReport(freshInterview.interview_reports);
               const r = freshInterview.interview_reports;
-              if (r.summary != null && r.english_score != null && Array.isArray(r.grammar_mistakes) && r.grammar_mistakes.length > 0 && Array.isArray(r.detailed_feedback) && r.detailed_feedback.length > 0) {
+              if (isReportReady(r)) {
                 if (pollInterval) clearInterval(pollInterval);
               }
             }
@@ -264,6 +280,7 @@ export default function InterviewReport() {
   const hasScores = report?.english_score != null;
   const hasIssues = report && Array.isArray(report.grammar_mistakes) && report.grammar_mistakes.length > 0;
   const hasFeedback = report && Array.isArray(report.detailed_feedback) && report.detailed_feedback.length > 0;
+  const reportReady = hasSummary && hasScores;
 
   const overallScore = report?.overall_score ?? 0;
   const grammarMistakes: GrammarMistake[] = Array.isArray(report?.grammar_mistakes) ? report.grammar_mistakes : [];
@@ -534,7 +551,7 @@ export default function InterviewReport() {
                 </Card>
               ))}
             </div>
-          ) : !analysisFailed && !hasFeedback ? (
+          ) : !analysisFailed && !hasFeedback && !reportReady ? (
             <Card className="border-0">
               <CardContent className="p-5 space-y-3">
                 <div className="h-3 w-32 rounded shimmer-block" />

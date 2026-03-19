@@ -538,7 +538,7 @@ export default function AdminVisaTypes() {
                         <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                         <Badge variant="secondary" className="text-[10px]">Section</Badge>
                         <div className="flex-1 min-w-0">
-                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} placeholder="Section title" className="h-8 text-sm" />
+                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} onMouseDown={(e) => e.stopPropagation()} draggable={false} placeholder="Section title" className="h-8 text-sm" />
                         </div>
                         <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
                           <ArrowUp className="h-3.5 w-3.5" />

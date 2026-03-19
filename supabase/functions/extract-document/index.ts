@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { file_base64, file_type, visa_type_id } = await req.json();
+    const { file_base64, file_type, visa_type_id, debug_client_project_ref, debug_trace_id } = await req.json();
     if (!file_base64) {
       return new Response(JSON.stringify({ error: "No file provided" }), {
         status: 400,
@@ -246,6 +246,10 @@ Deno.serve(async (req: Request) => {
 
     const allowedFieldKeys = sanitizedFields.map((field: any) => field.field_key);
     const ocrTextLength = extractedText.length;
+    const serverProjectRef = (Deno.env.get("SUPABASE_URL") || "")
+      .replace("https://", "")
+      .replace("http://", "")
+      .split(".")[0];
 
     const heuristicNormalized = Object.fromEntries(
       sanitizedFields.map((field: any) => {
@@ -269,6 +273,10 @@ Deno.serve(async (req: Request) => {
         __debug: {
           extractor_version: "2026-03-18-heuristic-v1",
           source: "heuristic_only",
+          trace_id: debug_trace_id || null,
+          client_project_ref: debug_client_project_ref || null,
+          server_project_ref: serverProjectRef || null,
+          project_ref_match: Boolean(debug_client_project_ref) ? debug_client_project_ref === serverProjectRef : null,
           visa_type_id,
           allowed_keys: allowedFieldKeys,
           returned_keys: Object.keys(heuristicNormalized),
@@ -464,6 +472,10 @@ Rules:
       __debug: {
         extractor_version: "2026-03-18-heuristic-ai-min-v1",
         source: "ai_with_filter",
+        trace_id: debug_trace_id || null,
+        client_project_ref: debug_client_project_ref || null,
+        server_project_ref: serverProjectRef || null,
+        project_ref_match: Boolean(debug_client_project_ref) ? debug_client_project_ref === serverProjectRef : null,
         visa_type_id,
         allowed_keys: allowedFieldKeys,
         ai_raw_keys: Object.keys(structured || {}),

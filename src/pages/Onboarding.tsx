@@ -95,9 +95,14 @@ export default function Onboarding() {
       const traceId = `extract-${Date.now()}`;
       const expectedKeys = formFields.map((field) => field.field_key);
       const requiredKeys = formFields.filter((field) => field.is_required).map((field) => field.field_key);
+      const clientProjectRef = (import.meta.env.VITE_SUPABASE_URL || "")
+        .replace("https://", "")
+        .replace("http://", "")
+        .split(".")[0];
 
       console.group(`[DOC_EXTRACT][${traceId}] Request`);
       console.log("visa_type_id", visaTypeId);
+      console.log("clientProjectRef", clientProjectRef);
       console.log("file", { name: file.name, type: file.type, size: file.size, base64Length: base64.length });
       console.log("expectedKeys", expectedKeys);
       console.log("requiredKeys", requiredKeys);
@@ -108,6 +113,8 @@ export default function Onboarding() {
           file_base64: base64,
           file_type: file.type,
           visa_type_id: visaTypeId,
+          debug_client_project_ref: clientProjectRef,
+          debug_trace_id: traceId,
         },
       });
 

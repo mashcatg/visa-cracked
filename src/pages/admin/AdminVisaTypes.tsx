@@ -68,10 +68,10 @@ function getGridLabel(value: "1" | "2" | "3" | "4") {
 function getEffectiveSectionTitle(items: FormField[], index: number) {
   for (let cursor = index; cursor >= 0; cursor -= 1) {
     if (items[cursor]?.item_type === "section") {
-      return items[cursor].section_title?.trim() || "";
+      return items[cursor].section_title?.trim() || "General";
     }
   }
-  return "";
+  return "General";
 }
 
 export default function AdminVisaTypes() {
@@ -93,6 +93,7 @@ export default function AdminVisaTypes() {
   const [savingMode, setSavingMode] = useState<string | null>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [savingFields, setSavingFields] = useState(false);
+  
   const [draggingFieldIndex, setDraggingFieldIndex] = useState<number | null>(null);
   const [dragOverFieldIndex, setDragOverFieldIndex] = useState<number | null>(null);
   const [openFieldIndex, setOpenFieldIndex] = useState<number | null>(null);
@@ -537,7 +538,7 @@ export default function AdminVisaTypes() {
                         <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                         <Badge variant="secondary" className="text-[10px]">Section</Badge>
                         <div className="flex-1 min-w-0">
-                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} placeholder="Section title" className="h-8 text-sm" />
+                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} onMouseDown={(e) => e.stopPropagation()} draggable={false} placeholder="Section title" className="h-8 text-sm" />
                         </div>
                         <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
                           <ArrowUp className="h-3.5 w-3.5" />
@@ -603,9 +604,7 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {getEffectiveSectionTitle(formFields, index)
-                          ? `${getEffectiveSectionTitle(formFields, index)} • ${getGridLabel(field.layout_width)}`
-                          : getGridLabel(field.layout_width)}
+                        {getEffectiveSectionTitle(formFields, index)} • {getGridLabel(field.layout_width)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -714,7 +713,7 @@ export default function AdminVisaTypes() {
                         <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
                         <Badge variant="secondary" className="text-[10px]">Section</Badge>
                         <div className="flex-1 min-w-0">
-                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} placeholder="Section title" className="h-8 text-sm" />
+                          <Input value={field.section_title} onChange={(e) => updateFormField(index, "section_title", e.target.value)} onMouseDown={(e) => e.stopPropagation()} draggable={false} placeholder="Section title" className="h-8 text-sm" />
                         </div>
                         <Button type="button" variant="ghost" size="icon" onClick={() => moveFieldUp(index)} disabled={index === 0}>
                           <ArrowUp className="h-3.5 w-3.5" />
@@ -780,9 +779,7 @@ export default function AdminVisaTypes() {
                         </Button>
                       </div>
                       <div className="bg-muted/30 p-2.5 rounded border border-border/50 text-[11px] text-muted-foreground font-medium">
-                        {getEffectiveSectionTitle(formFields, index)
-                          ? `${getEffectiveSectionTitle(formFields, index)} • ${getGridLabel(field.layout_width)}`
-                          : getGridLabel(field.layout_width)}
+                        {getEffectiveSectionTitle(formFields, index)} • {getGridLabel(field.layout_width)}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">

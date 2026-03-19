@@ -502,10 +502,6 @@ export default function AdminVisaTypes() {
             <SheetHeader><SheetTitle>Form Fields — {fieldsVisaType?.name}</SheetTitle></SheetHeader>
             <div className="flex-1 overflow-y-auto space-y-4 py-4">
               <p className="text-xs text-muted-foreground">Tip: Drag fields with the grip handle, or use arrow buttons for precise ordering.</p>
-              <div className="space-y-1">
-                <Label className="text-xs">New Section Title</Label>
-                <Input value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} placeholder="e.g. Academic Information" className="text-sm" />
-              </div>
               {formFields.length === 0 && (
                 <p className="text-center text-muted-foreground py-4 text-sm">No fields configured. Add fields that users fill during onboarding.</p>
               )}

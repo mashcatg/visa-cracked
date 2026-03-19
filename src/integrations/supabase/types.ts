@@ -557,8 +557,8 @@ export type Database = {
           field_type: string
           id: string
           is_required: boolean
-          layout_width: string
           label: string
+          layout_width: string
           options: Json | null
           placeholder: string | null
           section_title: string | null
@@ -571,8 +571,8 @@ export type Database = {
           field_type?: string
           id?: string
           is_required?: boolean
-          layout_width?: string
           label: string
+          layout_width?: string
           options?: Json | null
           placeholder?: string | null
           section_title?: string | null
@@ -585,8 +585,8 @@ export type Database = {
           field_type?: string
           id?: string
           is_required?: boolean
-          layout_width?: string
           label?: string
+          layout_width?: string
           options?: Json | null
           placeholder?: string | null
           section_title?: string | null

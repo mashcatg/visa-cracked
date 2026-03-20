@@ -150,12 +150,12 @@ export default function InterviewRoom() {
           setConnectionQuality("poor");
         });
 
-        const call = await (vapi as any).start({
-          assistantId: data.assistantId,
-          assistantOverrides: {
+        const call = await (vapi as any).start(
+          data.assistantId,
+          {
             variableValues: data.variableValues || {},
-          },
-        });
+          }
+        );
         setCallData(call);
         if (call?.id) {
           await supabase.from("interviews").update({ vapi_call_id: call.id }).eq("id", id);

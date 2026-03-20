@@ -60,6 +60,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Fetch profile core fields
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("full_name, visa_country, visa_type, whatsapp_number")
+      .eq("user_id", user.id)
+      .single();
+
     // Fetch dynamic form data for user's visa type
     let dynamicFormData: Record<string, string> = {};
     if (interview.visa_type_id) {
@@ -116,8 +123,12 @@ Deno.serve(async (req: Request) => {
       .update({ status: "in_progress" })
       .eq("id", interviewId);
 
-    // Build variableValues only from dynamic visa form data
+    // Build variableValues from profile + dynamic visa form data
     const variableValues: Record<string, string> = {
+      full_name: profile?.full_name || "",
+      visa_country: profile?.visa_country || "",
+      visa_type: profile?.visa_type || "",
+      whatsapp_number: profile?.whatsapp_number || "",
       ...dynamicFormData,
     };
 
